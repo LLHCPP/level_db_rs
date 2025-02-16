@@ -1,7 +1,7 @@
 use std::num::Wrapping;
 
 #[inline]
-pub fn hash(data_bytes:&[u8], seed:u32) ->u32 {
+fn hash(data_bytes:&[u8], seed:u32) ->u32 {
     let m: Wrapping<u32> = Wrapping(0xc6a4a793);
     let r:u32 = 24;
     let mut i = 0;
