@@ -1,2 +1,2 @@
 mod hash;
-pub use hash::hash_bytes;
+pub use hash::hash;
