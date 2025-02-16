@@ -1,5 +1,6 @@
 use std::num::Wrapping;
 
+#[inline]
 fn hash(data_bytes:&[u8], seed:u32) ->u32 {
     let m: Wrapping<u32> = Wrapping(0xc6a4a793);
     let r:u32 = 24;
@@ -34,7 +35,7 @@ fn hash(data_bytes:&[u8], seed:u32) ->u32 {
     }
     h.0
 }
-fn hash_string(data:&str, seed:u32) ->u32 {
+pub fn hash_string(data:&str, seed:u32) ->u32 {
     hash(data.as_bytes(), seed)
 }
 #[cfg(test)]
@@ -42,7 +43,7 @@ mod tests {
     use crate::unit::hash::hash;
 
     #[test]
-    fn test_add() {
+    fn test_hash() {
         let data0: &[u8] = &[];
         let data1: &[u8] = &[0x62];
         let data2: &[u8] = &[0xc3, 0x97];
