@@ -1,0 +1,13 @@
+[package]
+name = "level_db_rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bench]]
+name = "hash_bench"  # 这里的名字必须和 benches/ 下的文件名一致（不带 .rs 后缀）
+harness = false  # 禁用默认的基准测试框架，使用 criterion
+
+
+[dependencies]
+criterion = "0.5.1"
+rand = "0.9.0"
