@@ -40,7 +40,7 @@ pub fn hash_string(data:&str, seed:u32) ->u32 {
 }
 #[cfg(test)]
 mod tests {
-    use crate::unit::hash::hash;
+    use crate::unit::hash;
 
     #[test]
     fn test_hash() {

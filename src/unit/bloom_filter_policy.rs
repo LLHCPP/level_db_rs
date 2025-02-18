@@ -1,12 +1,13 @@
-use crate::obj::Slice;
+use crate::obj::slice::Slice;
 use crate::unit::filter_policy::FilterPolicy;
-use crate::unit;
+use crate::unit::hash;
+
 struct BloomFilterPolicy {
     bits_per_key: usize,
     k: u8,
 }
 fn bloom_hash(key :&Slice) -> u32 {
-    return unit::hash(key.data(), 0xbc9f1d34);
+    return hash(key.data(), 0xbc9f1d34);
 }
 
 

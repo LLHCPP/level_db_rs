@@ -1,2 +1,2 @@
 pub mod unit;
-mod obj;
+pub mod obj;

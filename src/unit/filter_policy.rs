@@ -1,4 +1,4 @@
-use crate::obj::Slice;
+use crate::obj::slice::Slice;
 
 pub trait FilterPolicy {
     fn name() -> &'static str;
