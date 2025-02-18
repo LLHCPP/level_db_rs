@@ -7,14 +7,14 @@ pub struct Slice {
 }
 impl Slice {
     // 构造函数
-    fn new(data: Box<[u8]>) -> Self {
+    pub(crate) fn new(data: Box<[u8]>) -> Self {
         Slice { data_bytes: data }
     }
 
     pub fn data(&self) -> &[u8] {
         &*self.data_bytes
     }
-    fn new_from_string(data: String) -> Self {
+    pub(crate) fn new_from_string(data: String) -> Self {
         Slice { data_bytes: Box::from(data.into_bytes()) }
     }
     pub fn size(&self) -> usize {
@@ -30,7 +30,7 @@ impl Slice {
         }
         self.data_bytes = Box::from(&self.data()[n..]);
     }
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         String::from_utf8_lossy(&*self.data_bytes).to_string()
     }
 
