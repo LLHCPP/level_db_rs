@@ -24,8 +24,11 @@ impl Slice {
     pub(crate) fn new_from_string(data: String) -> Self {
         Slice { data_bytes:  Bytes::from(data.into_bytes()) }
     }
-    pub(crate) fn new_from_str(data: &'static str) -> Self {
+    pub(crate) fn new_from_static(data: &'static str) -> Self {
         Slice { data_bytes:  Bytes::from(data) }
+    }
+    pub(crate) fn new_from_str(data: &str) -> Self {
+        Slice { data_bytes:  Bytes::copy_from_slice(data.as_bytes()) }
     }
     pub fn size(&self) -> usize {
         self.len()
@@ -73,13 +76,6 @@ impl PartialEq for Slice {
 
 impl From<&str> for Slice {
     fn from(s: &str) -> Self {
-
-        unsafe {
-            if std::mem::transmute::<&str, &'static str>(s) as *const _ == s as *const _ {
-                Slice::new_from_str(std::mem::transmute(s))
-            } else {
-               Slice::new_from_string(s.to_string())
-            }
-        }
+        Slice::new_from_str(s)
     }
 }
