@@ -1,7 +1,7 @@
-use bytes::Bytes;
 use crate::obj::slice::Slice;
 use crate::unit::filter_policy::FilterPolicy;
 use crate::unit::hash;
+use bytes::Bytes;
 
 
 struct BloomFilterPolicy {
@@ -142,12 +142,7 @@ impl BloomTest {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use bytes::Bytes;
-    use crate::obj::slice::Slice;
-    use crate::unit::bloom_filter_policy::{BloomFilterPolicy, BloomTest};
-    use crate::unit::filter_policy::FilterPolicy;
-
+    use crate::unit::bloom_filter_policy::BloomTest;
     #[test]
     fn test_empty_filter() {
         let mut test = BloomTest::new(10);
