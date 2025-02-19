@@ -81,7 +81,5 @@ impl From<&str> for Slice {
                Slice::new_from_string(s.to_string())
             }
         }
-        
-        Slice::new_from_string(s.to_string())
     }
 }
