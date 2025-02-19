@@ -154,4 +154,14 @@ mod tests {
         assert!(!test.matches(&("hello".into())));
         assert!(!test.matches(&("world".into())));
     }
+    #[test]
+    fn test_small() {
+        let mut test = BloomTest::new(10);
+        test.add(&("hello".into()));
+        test.add(&("world".into()));
+        assert!(test.matches(&("hello".into())));
+        assert!(test.matches(&("world".into())));
+        assert!(!test.matches(&("x".into())));
+        assert!(!test.matches(&("foo".into())));
+    }
 }
