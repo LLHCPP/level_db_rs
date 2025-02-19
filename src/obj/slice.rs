@@ -1,21 +1,31 @@
+use bytes::{Buf, Bytes};
 use std::cmp::Ordering;
 use std::ops::Index;
 
 #[derive(Debug, Clone)]
 pub struct Slice {
-    pub(crate) data_bytes:Box<[u8]>,
+    pub(crate) data_bytes:Bytes,
 }
 impl Slice {
     // 构造函数
-    pub(crate) fn new(data: Box<[u8]>) -> Self {
+    pub(crate) fn new(data: Bytes) -> Self {
         Slice { data_bytes: data }
     }
 
     pub fn data(&self) -> &[u8] {
         &*self.data_bytes
     }
+    pub(crate) fn new_from_vec(data: Vec<u8>) -> Self {
+        Slice { data_bytes:  Bytes::from(data) }
+    }
+    pub(crate) fn new_from_array(data: &[u8]) -> Self {
+        Slice { data_bytes:  Bytes::copy_from_slice(data) }
+    }
     pub(crate) fn new_from_string(data: String) -> Self {
-        Slice { data_bytes: Box::from(data.into_bytes()) }
+        Slice { data_bytes:  Bytes::from(data.into_bytes()) }
+    }
+    pub(crate) fn new_from_str(data: &'static str) -> Self {
+        Slice { data_bytes:  Bytes::from(data) }
     }
     pub fn size(&self) -> usize {
         self.len()
@@ -28,18 +38,18 @@ impl Slice {
         if n > self.len() {
             panic!("remove_prefix: n is out of range")
         }
-        self.data_bytes = Box::from(&self.data()[n..]);
+        self.data_bytes.advance(n);
     }
     pub fn to_string(&self) -> String {
         String::from_utf8_lossy(&*self.data_bytes).to_string()
     }
 
     fn compare(&self, x: &Slice) -> Ordering {
-        return self.data_bytes.cmp(&x.data_bytes)
+        self.data_bytes.cmp(&x.data_bytes)
     }
 
     fn starts_with(&self, x: &Slice) -> bool {
-        return self.data_bytes.len() >= x.data_bytes.len() &&
+        self.data_bytes.len() >= x.data_bytes.len() &&
                self.data_bytes[..x.data_bytes.len()] == x.data_bytes[..]
     }
 
@@ -58,5 +68,20 @@ impl Index<usize> for Slice {
 impl PartialEq for Slice {
     fn eq(&self, other: &Self) -> bool {
         self.data_bytes == other.data_bytes
+    }
+}
+
+impl From<&str> for Slice {
+    fn from(s: &str) -> Self {
+
+        unsafe {
+            if std::mem::transmute::<&str, &'static str>(s) as *const _ == s as *const _ {
+                Slice::new_from_str(s)
+            } else {
+               Slice::new_from_string(s.to_string())
+            }
+        }
+        
+        Slice::new_from_string(s.to_string())
     }
 }
