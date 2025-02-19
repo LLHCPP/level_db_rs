@@ -76,7 +76,7 @@ impl From<&str> for Slice {
 
         unsafe {
             if std::mem::transmute::<&str, &'static str>(s) as *const _ == s as *const _ {
-                Slice::new_from_str(s)
+                Slice::new_from_str(std::mem::transmute(s))
             } else {
                Slice::new_from_string(s.to_string())
             }
