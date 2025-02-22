@@ -26,7 +26,7 @@ impl BloomFilterPolicy {
         hash(key.data(), 0xbc9f1d34)
     }
     fn test()->u32{
-        32
+        67
     }
 }
 
