@@ -25,12 +25,16 @@ impl BloomFilterPolicy {
     fn bloom_hash(key: &Slice) -> u32 {
         hash(key.data(), 0xbc9f1d34)
     }
+    fn test()->u32{
+        32
+    }
 }
 
 impl FilterPolicy for BloomFilterPolicy {
     fn name(&self) -> &'static str {
         "leveldb.BuiltinBloomFilter2"
     }
+    
 
     fn create_filter(&self, keys: &[Slice], dst: &mut Bytes) {
         let mut bits = keys.len() * self.bits_per_key;
