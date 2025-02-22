@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::sync::atomic::AtomicU64;
 use bumpalo::Bump;
 struct Arena {
     bump: Bump,
