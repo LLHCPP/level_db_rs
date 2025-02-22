@@ -8,9 +8,6 @@ struct BloomFilterPolicy {
     bits_per_key: usize,
     k: u8,
 }
-fn bloom_hash(key: &Slice) -> u32 {
-    hash(key.data(), 0xbc9f1d34)
-}
 
 impl BloomFilterPolicy {
     fn new(bits_per_key: usize) -> Self {
@@ -24,6 +21,9 @@ impl BloomFilterPolicy {
             bits_per_key,
             k: k as u8,
         }
+    }
+    fn bloom_hash(key: &Slice) -> u32 {
+        hash(key.data(), 0xbc9f1d34)
     }
 }
 
@@ -45,11 +45,11 @@ impl FilterPolicy for BloomFilterPolicy {
         vec.push(self.k);
         let array = &mut vec[init_size..];
         for key in keys.iter() {
-            let mut h = Wrapping(bloom_hash(&key));
+            let mut h = Wrapping(BloomFilterPolicy::bloom_hash(&key));
             let delta = (h >> 17) | (h << 15);
             for _ in 0..self.k {
-                let bit_pos = (h.0 as usize % (bits));
-                array[bit_pos / 8] |= (1u8 << (bit_pos % 8));
+                let bit_pos = h.0 as usize % (bits);
+                array[bit_pos / 8] |= 1u8 << (bit_pos % 8);
                 h += delta;
             }
         }
@@ -67,10 +67,10 @@ impl FilterPolicy for BloomFilterPolicy {
         if k > 30 {
             return true;
         }
-        let mut h = Wrapping(bloom_hash(key));
+        let mut h = Wrapping(BloomFilterPolicy::bloom_hash(key));
         let delta = (h >> 17) | (h << 15);
         for _ in 0..k {
-            let bit_pos = (h.0 as usize % (bits));
+            let bit_pos = h.0 as usize % (bits);
             if array[bit_pos / 8] & (1 << (bit_pos % 8)) == 0 {
                 return false;
             }
@@ -79,12 +79,14 @@ impl FilterPolicy for BloomFilterPolicy {
         true
     }
 }
+#[cfg(test)]
 struct BloomTest {
     policy: BloomFilterPolicy,
     filter: Bytes,
     keys: Vec<Slice>,
 }
 
+#[cfg(test)]
 impl BloomTest {
     fn key(i: u32, buffer: &mut [u8]) -> Slice {
         buffer[0] = i as u8;
@@ -134,11 +136,11 @@ impl BloomTest {
         result as f64 / 10000.0
     }
     fn next_length(mut length: u32) -> u32 {
-        if (length < 10) {
+        if length < 10 {
             length += 1;
-        } else if (length < 100) {
+        } else if length < 100 {
             length += 10;
-        } else if (length < 1000) {
+        } else if length < 1000 {
             length += 100;
         } else {
             length += 1000;
@@ -159,8 +161,8 @@ mod tests {
     #[test]
     fn test_small() {
         let mut test = BloomTest::new(10);
-        test.add(("hello".into()));
-        test.add(("world".into()));
+        test.add("hello".into());
+        test.add("world".into());
         assert!(test.matches(&("hello".into())));
         assert!(test.matches(&("world".into())));
         assert!(!test.matches(&("x".into())));
