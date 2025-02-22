@@ -31,13 +31,14 @@ mod tests {
     fn test_alloc() {
         let mut test = Arena::new();
         let buffer = test.alloc([0; 4]);
-        println!("{:?}", buffer)
+        assert_eq!(buffer.len(), 4);
+        assert_eq!(buffer[0], 0);
     }
 
     #[test]
     fn test_alloc_array() {
         let mut test = Arena::new();
         let buffer = test.alloc_array::<u8>(12);
-        println!("{:?}", buffer)
+        assert_eq!(buffer.len(), 12)
     }
 }
