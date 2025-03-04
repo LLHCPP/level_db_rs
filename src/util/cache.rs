@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use lru::LruCache;
 use crate::obj::slice::Slice;
-use crate::unit::hash;
+use crate::util::hash;
 
 struct LRUCache<T>{
     cache:LruCache<Slice,T>

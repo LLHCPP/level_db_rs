@@ -1,6 +1,6 @@
 use crate::obj::slice::Slice;
-use crate::unit::filter_policy::FilterPolicy;
-use crate::unit::hash;
+use crate::util::filter_policy::FilterPolicy;
+use crate::util::hash;
 use bytes::Bytes;
 use std::num::Wrapping;
 
@@ -151,7 +151,7 @@ impl BloomTest {
 
 #[cfg(test)]
 mod tests {
-    use crate::unit::bloom_filter_policy::BloomTest;
+    use crate::util::bloom_filter_policy::BloomTest;
     #[test]
     fn test_empty_filter() {
         let mut test = BloomTest::new(10);

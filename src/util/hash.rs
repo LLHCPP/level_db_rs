@@ -45,7 +45,7 @@ pub fn hash_string(data: &str, seed: u32) -> u32 {
 }
 #[cfg(test)]
 mod tests {
-    use crate::unit::hash;
+    use crate::util::hash;
     #[test]
     fn test_hash() {
         let data0: &[u8] = &[];
