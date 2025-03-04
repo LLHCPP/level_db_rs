@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 use std::ops::Index;
 
 #[derive(Debug, Clone)]
+#[derive(Eq)]
+#[derive(Hash)]
 pub struct Slice {
     pub(crate) data_bytes: Bytes,
 }

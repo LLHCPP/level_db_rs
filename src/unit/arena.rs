@@ -24,7 +24,7 @@ impl Arena {
 }
 #[cfg(test)]
 mod tests {
-    use crate::obj::arena::Arena;
+    use crate::unit::arena::Arena;
     #[test]
     fn test_alloc() {
         let mut test = Arena::new();
