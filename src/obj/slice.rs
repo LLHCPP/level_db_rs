@@ -1,6 +1,6 @@
 use bytes::{Buf, Bytes};
-use std::cmp::Ordering;
-use std::ops::Index;
+use std::cmp::{min, min_by, Ordering};
+use std::ops::{Index, RangeTo};
 
 #[derive(Debug, Clone)]
 #[derive(Eq)]
@@ -49,7 +49,7 @@ impl Slice {
     pub fn len(&self) -> usize {
         self.data_bytes.len()
     }
-    fn remove_prefix(&mut self, n: usize) {
+    pub(crate) fn remove_prefix(&mut self, n: usize) {
         if n > self.len() {
             panic!("remove_prefix: n is out of range")
         }
@@ -66,6 +66,12 @@ impl Slice {
     fn starts_with(&self, x: &Slice) -> bool {
         self.data_bytes.len() >= x.data_bytes.len()
             && self.data_bytes[..x.data_bytes.len()] == x.data_bytes[..]
+    }
+    pub fn slice(&mut self, n: usize)  -> Slice {
+       let data_bytes = self.data_bytes.slice(..min(n, self.len()));
+        Slice{
+            data_bytes,
+        }
     }
 
     // 打印内容
