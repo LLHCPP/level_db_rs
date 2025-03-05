@@ -1,6 +1,5 @@
-use std::mem;
-use bytes::{BufMut, Bytes, BytesMut};
 use crate::obj::slice::Slice;
+use bytes::{BufMut, BytesMut};
 
 fn encode_fixed32(dst: &mut [u8], value: u32) {
     dst[0] = (value >> 0) as u8;
@@ -30,18 +29,19 @@ fn put_fixed64(dst: &mut BytesMut, value: u64) {
     dst.put_slice(&buf);
 }
 
+#[inline]
 fn encode_varint32(dst: &mut [u8], v: u32) -> &mut [u8]{
     const B:u32 = 128;
     let mut pos:usize = 0;
-    if (v < (1<<7)) {
+    if v < (1<<7) {
         dst[pos] = v as u8;
         pos += 1;
-    }else if (v<(1<<14)) {
+    }else if v<(1<<14) {
         dst[pos] = (v | B) as u8;
         pos += 1;
         dst[pos] = (v >> 7) as u8;
         pos += 1;
-    } else if (v < (1<<21)){
+    } else if v < (1<<21) {
         dst[pos] = (v | B) as u8;
         pos += 1;
         dst[pos] = (v >> 7 | B) as u8;
@@ -76,6 +76,7 @@ fn put_varint32(dst: &mut BytesMut, v: u32) {
     dst.put_slice(append);
 }
 
+#[inline]
 fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8]{
     const B: u64 = 128;
     let mut pos:usize = 0;
@@ -106,6 +107,7 @@ fn varint_length(mut v:u64) -> u32{
     len
 }
 
+#[inline]
 fn get_varint32ptr_fallback<'a>(ptr:&'a[u8], limit: usize, value: &mut u32) -> &'a[u8] {
     let mut result = 0u32;
     let mut shift = 0u32;
@@ -116,7 +118,7 @@ fn get_varint32ptr_fallback<'a>(ptr:&'a[u8], limit: usize, value: &mut u32) -> &
         if (byte&128u32) > 0 {
             result |= (byte&127)<<shift;
         } else {
-            result |= (byte<<shift);
+            result |= byte<<shift;
             *value = result;
             return &ptr[pos..];
         }
@@ -126,6 +128,7 @@ fn get_varint32ptr_fallback<'a>(ptr:&'a[u8], limit: usize, value: &mut u32) -> &
 }
 
 
+#[inline]
 pub fn get_varint32ptr<'a>(ptr:&'a[u8], limit: usize, value: &mut u32) -> &'a[u8] {
     if limit >0 {
         let result = ptr[0] as u32;
@@ -151,7 +154,7 @@ fn get_varint32(input:&mut Slice, value: &mut u32) ->bool{
     }
 }
 
-
+#[inline]
 fn get_varint64ptr<'a>(ptr:&'a[u8], limit: usize, value: &mut u64) -> &'a[u8] {
     let mut result = 0u64;
     let mut shift = 0u32;
