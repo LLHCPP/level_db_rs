@@ -1,2 +1,2 @@
-pub mod util;
 pub mod obj;
+pub mod util;

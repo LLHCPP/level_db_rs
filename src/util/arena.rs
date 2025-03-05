@@ -4,12 +4,9 @@ struct Arena {
 }
 impl Arena {
     fn new() -> Self {
-        Self {
-            bump: Bump::new(),
-        }
+        Self { bump: Bump::new() }
     }
-    fn alloc<T>(&mut self, value:T) -> &mut T
-    {
+    fn alloc<T>(&mut self, value: T) -> &mut T {
         self.bump.alloc(value)
     }
     // 专门为数组优化的版本

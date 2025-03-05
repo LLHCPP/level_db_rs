@@ -2,9 +2,7 @@ use bytes::{Buf, Bytes};
 use std::cmp::{min, min_by, Ordering};
 use std::ops::{Index, RangeTo};
 
-#[derive(Debug, Clone)]
-#[derive(Eq)]
-#[derive(Hash)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub struct Slice {
     pub(crate) data_bytes: Bytes,
 }
@@ -67,11 +65,9 @@ impl Slice {
         self.data_bytes.len() >= x.data_bytes.len()
             && self.data_bytes[..x.data_bytes.len()] == x.data_bytes[..]
     }
-    pub fn slice(&mut self, n: usize)  -> Slice {
-       let data_bytes = self.data_bytes.slice(..min(n, self.len()));
-        Slice{
-            data_bytes,
-        }
+    pub fn slice(&mut self, n: usize) -> Slice {
+        let data_bytes = self.data_bytes.slice(..min(n, self.len()));
+        Slice { data_bytes }
     }
 
     // 打印内容

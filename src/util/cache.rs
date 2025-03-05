@@ -1,47 +1,49 @@
-use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicU64, Ordering};
-use lru::LruCache;
 use crate::obj::slice::Slice;
 use crate::util::hash;
+use lru::LruCache;
+use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-struct LRUCache<T>{
-    cache:LruCache<Slice,T>
+struct LRUCache<T> {
+    cache: LruCache<Slice, T>,
 }
-impl<T> LRUCache<T>{
-    fn new(capacity:NonZeroUsize)->Self{
-        LRUCache{
-            cache:LruCache::new(capacity)
+impl<T> LRUCache<T> {
+    fn new(capacity: NonZeroUsize) -> Self {
+        LRUCache {
+            cache: LruCache::new(capacity),
         }
     }
-    fn get(&mut self,key:&Slice)->Option<&T>{
+    fn get(&mut self, key: &Slice) -> Option<&T> {
         self.cache.get(key)
     }
-    fn put(&mut self,key:Slice,value:T){
-        self.cache.put(key,value);
+    fn put(&mut self, key: Slice, value: T) {
+        self.cache.put(key, value);
     }
-    fn erase(&mut self,key:&Slice) {
+    fn erase(&mut self, key: &Slice) {
         self.cache.pop(key);
     }
 }
 const K_NUM_SHARD_BITS: usize = 4;
 const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
 struct ShardedLRUCache<T> {
-    shared:[LRUCache<T>; K_NUM_SHARDS],
-    last_id_: AtomicU64
+    shared: [LRUCache<T>; K_NUM_SHARDS],
+    last_id_: AtomicU64,
 }
 
 impl<T> ShardedLRUCache<T> {
     fn new(capacity: NonZeroUsize) -> Self {
         let per_shard = (usize::from(capacity) + (K_NUM_SHARDS - 1)) / K_NUM_SHARDS;
         ShardedLRUCache {
-            shared: std::array::from_fn(|_| LRUCache::new(NonZeroUsize::try_from(per_shard).unwrap())),
-            last_id_: AtomicU64::new(0)
+            shared: std::array::from_fn(|_| {
+                LRUCache::new(NonZeroUsize::try_from(per_shard).unwrap())
+            }),
+            last_id_: AtomicU64::new(0),
         }
     }
-    fn shard(hash:u32) -> usize {
-        (hash>> (32 - K_NUM_SHARD_BITS)) as usize
+    fn shard(hash: u32) -> usize {
+        (hash >> (32 - K_NUM_SHARD_BITS)) as usize
     }
-    fn hash_slice(s:&Slice) -> u32 {
+    fn hash_slice(s: &Slice) -> u32 {
         hash(s.data(), 0)
     }
     fn insert(&mut self, key: &Slice, value: T) {
@@ -52,7 +54,7 @@ impl<T> ShardedLRUCache<T> {
         self.last_id_.fetch_add(1, Ordering::SeqCst);
         self.last_id_.load(Ordering::SeqCst)
     }
-    fn get(&mut self, key: &Slice) ->Option<&T> {
+    fn get(&mut self, key: &Slice) -> Option<&T> {
         let hash = Self::hash_slice(key);
         self.shared[Self::shard(hash)].get(key)
     }
@@ -63,10 +65,10 @@ impl<T> ShardedLRUCache<T> {
 }
 
 #[cfg(test)]
-const K_CACHE_SIZE:usize = 1000;
+const K_CACHE_SIZE: usize = 1000;
 #[cfg(test)]
 struct CacheTest<T> {
-    cache:ShardedLRUCache<T>
+    cache: ShardedLRUCache<T>,
 }
 #[cfg(test)]
 impl CacheTest<i32> {
@@ -75,7 +77,7 @@ impl CacheTest<i32> {
             cache: ShardedLRUCache::new(NonZeroUsize::new(K_CACHE_SIZE).unwrap()),
         }
     }
-    fn encode_key(i:i32) -> Slice{
+    fn encode_key(i: i32) -> Slice {
         let mut buffer: [u8; 4] = [0; 4];
         buffer[0] = i as u8;
         buffer[1] = (i >> 8) as u8;
@@ -83,7 +85,7 @@ impl CacheTest<i32> {
         buffer[3] = (i >> 24) as u8;
         Slice::new_from_array(&buffer)
     }
-    fn decode_key(s:&Slice) -> i32 {
+    fn decode_key(s: &Slice) -> i32 {
         let mut buffer: [u8; 4] = [0; 4];
         buffer[0] = s[0];
         buffer[1] = s[1];
@@ -93,13 +95,13 @@ impl CacheTest<i32> {
     }
     fn lookup(&mut self, key: i32) -> &i32 {
         let en_key = Self::encode_key(key);
-       if let Some(value) = self.cache.get(&en_key) {
-           value
-       }else {
-           &-1
-       }
+        if let Some(value) = self.cache.get(&en_key) {
+            value
+        } else {
+            &-1
+        }
     }
-    fn insert(&mut self, key:i32, value:i32) {
+    fn insert(&mut self, key: i32, value: i32) {
         self.cache.insert(&CacheTest::encode_key(key), value)
     }
     fn erase(&mut self, key: i32) {
@@ -145,8 +147,8 @@ mod tests {
         test.insert(100, 101);
         test.insert(200, 201);
         test.insert(300, 301);
-        for i in 0..K_CACHE_SIZE+100 {
-           test.insert((1000 + i) as i32, (i + 2000) as i32);
+        for i in 0..K_CACHE_SIZE + 100 {
+            test.insert((1000 + i) as i32, (i + 2000) as i32);
             assert_eq!((i + 2000) as i32, *test.lookup((1000 + i) as i32));
             assert_eq!(101, *test.lookup(100));
         }
