@@ -30,7 +30,7 @@ fn put_fixed64(dst: &mut BytesMut, value: u64) {
 }
 
 #[inline]
-fn encode_varint32(dst: &mut [u8], v: u32) -> &mut [u8] {
+fn encode_var_int32(dst: &mut [u8], v: u32) -> &mut [u8] {
     const B: u32 = 128;
     let mut pos: usize = 0;
     if v < (1 << 7) {
@@ -69,14 +69,14 @@ fn encode_varint32(dst: &mut [u8], v: u32) -> &mut [u8] {
     &mut dst[..pos]
 }
 
-fn put_varint32(dst: &mut BytesMut, v: u32) {
+fn put_var_int32(dst: &mut BytesMut, v: u32) {
     let mut buf: [u8; 5] = [0; 5];
-    let append = encode_varint32(&mut buf, v);
+    let append = encode_var_int32(&mut buf, v);
     dst.put_slice(append);
 }
 
 #[inline]
-fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
+fn encode_var_int64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     const B: u64 = 128;
     let mut pos: usize = 0;
     while v >= B {
@@ -86,18 +86,18 @@ fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     }
     &mut dst[..pos]
 }
-fn put_varint64(dst: &mut BytesMut, v: u64) {
+fn put_var_int64(dst: &mut BytesMut, v: u64) {
     let mut buf: [u8; 10] = [0; 10];
-    let append = encode_varint64(&mut buf, v);
+    let append = encode_var_int64(&mut buf, v);
     dst.put_slice(append);
 }
 
 fn put_length_prefixed_slice(dst: &mut BytesMut, value: &Slice) {
-    put_varint32(dst, value.len() as u32);
+    put_var_int32(dst, value.len() as u32);
     dst.put_slice(value.data());
 }
 
-fn varint_length(mut v: u64) -> u32 {
+fn var_int_length(mut v: u64) -> u32 {
     let mut len = 1u32;
     while v >= 128 {
         v >>= 7;
@@ -107,7 +107,7 @@ fn varint_length(mut v: u64) -> u32 {
 }
 
 #[inline]
-fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) -> &'a [u8] {
+fn get_var_int32ptr_fallback<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) -> &'a [u8] {
     let mut result = 0u32;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -127,7 +127,7 @@ fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) ->
 }
 
 #[inline]
-pub fn get_varint32ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) -> &'a [u8] {
+pub fn get_var_int32ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) -> &'a [u8] {
     if limit > 0 {
         let result = ptr[0] as u32;
         if result & 128 == 0 {
@@ -135,13 +135,13 @@ pub fn get_varint32ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u32) -> &'a 
             return &ptr[1..];
         }
     }
-    get_varint32ptr_fallback(ptr, limit, value)
+    get_var_int32ptr_fallback(ptr, limit, value)
 }
 
-fn get_varint32(input: &mut Slice, value: &mut u32) -> bool {
+fn get_var_int32(input: &mut Slice, value: &mut u32) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_varint32ptr(ptr, limit, value);
+    let g = get_var_int32ptr(ptr, limit, value);
     if g.is_empty() {
         false
     } else {
@@ -152,7 +152,7 @@ fn get_varint32(input: &mut Slice, value: &mut u32) -> bool {
 }
 
 #[inline]
-fn get_varint64ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u64) -> &'a [u8] {
+fn get_var_int64ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u64) -> &'a [u8] {
     let mut result = 0u64;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -162,7 +162,7 @@ fn get_varint64ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u64) -> &'a [u8]
         if (byte & 128u64) > 0 {
             result |= (byte & 127) << shift;
         } else {
-            result |= (byte << shift);
+            result |= byte << shift;
             *value = result;
             return &ptr[pos..];
         }
@@ -171,10 +171,10 @@ fn get_varint64ptr<'a>(ptr: &'a [u8], limit: usize, value: &mut u64) -> &'a [u8]
     &[]
 }
 
-fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
+fn get_var_int64(input: &mut Slice, value: &mut u64) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_varint64ptr(ptr, limit, value);
+    let g = get_var_int64ptr(ptr, limit, value);
     if g.is_empty() {
         false
     } else {
@@ -186,7 +186,7 @@ fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
 
 fn get_length_prefixed_slice(input: &mut Slice, result: &mut Slice) -> bool {
     let mut len = 0u32;
-    if get_varint32(input, &mut len) && input.size() >= len as usize {
+    if get_var_int32(input, &mut len) && input.size() >= len as usize {
         *result = input.slice(len as usize);
         input.remove_prefix(len as usize);
         true
