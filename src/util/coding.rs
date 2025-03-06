@@ -79,14 +79,14 @@ fn encode_varint32(dst: &mut [u8], v: u32) -> &[u8] {
     &dst[..num_bytes]
 }
 
-fn put_var_int32(dst: &mut BytesMut, v: u32) {
+fn put_varint32(dst: &mut BytesMut, v: u32) {
     let mut buf: [u8; 5] = [0; 5];
     let append = encode_varint32(&mut buf, v);
     dst.put_slice(append);
 }
 
 #[inline]
-fn encode_var_int64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
+fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     const B: u64 = 128;
     let mut pos: usize = 0;
     while v >= B {
@@ -98,18 +98,18 @@ fn encode_var_int64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     pos += 1;
     &mut dst[..pos]
 }
-fn put_var_int64(dst: &mut BytesMut, v: u64) {
+fn put_varint64(dst: &mut BytesMut, v: u64) {
     let mut buf: [u8; 10] = [0; 10];
-    let append = encode_var_int64(&mut buf, v);
+    let append = encode_varint64(&mut buf, v);
     dst.put_slice(append);
 }
 
 fn put_length_prefixed_slice(dst: &mut BytesMut, value: &Slice) {
-    put_var_int32(dst, value.len() as u32);
+    put_varint32(dst, value.len() as u32);
     dst.put_slice(value.data());
 }
 
-fn var_int_length(mut v: u64) -> u32 {
+fn varint_length(mut v: u64) -> u32 {
     let mut len = 1u32;
     while v >= 128 {
         v >>= 7;
@@ -119,7 +119,7 @@ fn var_int_length(mut v: u64) -> u32 {
 }
 
 #[inline]
-fn get_var_int32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
+fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
     let mut result = 0u32;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -139,7 +139,7 @@ fn get_var_int32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
 }
 
 #[inline]
-pub fn get_var_int32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
+pub fn get_varint32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
     if ptr.len() > 0 {
         let result = ptr[0] as u32;
         if result & 128 == 0 {
@@ -147,13 +147,13 @@ pub fn get_var_int32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
             return &ptr[1..];
         }
     }
-    get_var_int32ptr_fallback(ptr, value)
+    get_varint32ptr_fallback(ptr, value)
 }
 
-fn get_var_int32(input: &mut Slice, value: &mut u32) -> bool {
+fn get_varint32(input: &mut Slice, value: &mut u32) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_var_int32ptr(ptr, value);
+    let g = get_varint32ptr(ptr, value);
     if g.is_empty() {
         false
     } else {
@@ -164,7 +164,7 @@ fn get_var_int32(input: &mut Slice, value: &mut u32) -> bool {
 }
 
 #[inline]
-fn get_var_int64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> &'a [u8] {
+fn get_varint64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> &'a [u8] {
     let mut result = 0u64;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -183,10 +183,10 @@ fn get_var_int64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> &'a [u8] {
     &[]
 }
 
-fn get_var_int64(input: &mut Slice, value: &mut u64) -> bool {
+fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_var_int64ptr(ptr, value);
+    let g = get_varint64ptr(ptr, value);
     if g.is_empty() {
         false
     } else {
@@ -198,7 +198,7 @@ fn get_var_int64(input: &mut Slice, value: &mut u64) -> bool {
 
 fn get_length_prefixed_slice(input: &mut Slice, result: &mut Slice) -> bool {
     let mut len = 0u32;
-    if get_var_int32(input, &mut len) && input.size() >= len as usize {
+    if get_varint32(input, &mut len) && input.size() >= len as usize {
         *result = input.slice(len as usize);
         input.remove_prefix(len as usize);
         true
@@ -276,7 +276,7 @@ mod tests {
         let mut bytes = BytesMut::new();
         for i in 0..32 * 32u32 {
             let v = (i / 32) << (i % 32);
-            put_var_int32(&mut bytes, v);
+            put_varint32(&mut bytes, v);
         }
 
         let mut p = &bytes[..];
@@ -284,13 +284,13 @@ mod tests {
             let expect = (i / 32) << (i % 32);
             let mut actual = 0;
             let start = p;
-            p = get_var_int32ptr(p, &mut actual);
+            p = get_varint32ptr(p, &mut actual);
             assert_eq!(expect, actual);
             if i != 32 * 32u32 - 1 {
                 assert!(!p.is_empty());
             }
             let length = (p.as_ptr() as usize - start.as_ptr() as usize) / size_of::<u8>();
-            assert_eq!(var_int_length(actual as u64), length as u32);
+            assert_eq!(varint_length(actual as u64), length as u32);
         }
         assert!(p.is_empty())
     }
@@ -313,16 +313,16 @@ mod tests {
         let mut bytes = BytesMut::new();
 
         for value in values.iter() {
-            put_var_int64(&mut bytes, *value);
+            put_varint64(&mut bytes, *value);
         }
         let mut p = &bytes[..];
         for value in values.iter() {
             let mut actual = 0u64;
             let start = p;
-            p = get_var_int64ptr(p, &mut actual);
+            p = get_varint64ptr(p, &mut actual);
             assert_eq!(*value, actual);
             let length = (p.as_ptr() as usize - start.as_ptr() as usize) / size_of::<u8>();
-            assert_eq!(var_int_length(actual), length as u32);
+            assert_eq!(varint_length(actual), length as u32);
         }
         assert!(p.is_empty())
     }
