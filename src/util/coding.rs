@@ -1,5 +1,5 @@
 use crate::obj::slice::Slice;
-use bytes::{BufMut, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 
 fn encode_fixed32(dst: &mut [u8], value: u32) {
     dst[0] = (value >> 0) as u8;
@@ -104,7 +104,7 @@ fn put_varint64(dst: &mut BytesMut, v: u64) {
     dst.put_slice(append);
 }
 
-fn put_length_prefixed_slice(dst: &mut BytesMut, value: &Slice) {
+fn put_length_prefixed_slice(dst: &mut BytesMut, value: Slice) {
     put_varint32(dst, value.len() as u32);
     dst.put_slice(value.data());
 }
@@ -119,7 +119,7 @@ fn varint_length(mut v: u64) -> u32 {
 }
 
 #[inline]
-fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
+fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> Option<&'a [u8]> {
     let mut result = 0u32;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -131,20 +131,20 @@ fn get_varint32ptr_fallback<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
         } else {
             result |= byte << shift;
             *value = result;
-            return &ptr[pos..];
+            return Some(&ptr[pos..]);
         }
         shift += 7;
     }
-    &[]
+    None
 }
 
 #[inline]
-pub fn get_varint32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
+pub fn get_varint32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> Option<&'a [u8]> {
     if ptr.len() > 0 {
         let result = ptr[0] as u32;
         if result & 128 == 0 {
             *value = result;
-            return &ptr[1..];
+            return Some(&ptr[1..]);
         }
     }
     get_varint32ptr_fallback(ptr, value)
@@ -153,18 +153,17 @@ pub fn get_varint32ptr<'a>(ptr: &'a [u8], value: &mut u32) -> &'a [u8] {
 fn get_varint32(input: &mut Slice, value: &mut u32) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_varint32ptr(ptr, value);
-    if g.is_empty() {
-        false
-    } else {
-        let remain = limit - g.len();
-        *input = input.slice(remain);
+    if let Some(q) = get_varint32ptr(ptr, value) {
+        let adv = limit - q.len();
+        input.data_bytes.advance(adv);
         true
+    } else {
+        false
     }
 }
 
 #[inline]
-fn get_varint64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> &'a [u8] {
+fn get_varint64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> Option<&'a [u8]> {
     let mut result = 0u64;
     let mut shift = 0u32;
     let mut pos = 0usize;
@@ -176,23 +175,22 @@ fn get_varint64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> &'a [u8] {
         } else {
             result |= byte << shift;
             *value = result;
-            return &ptr[pos..];
+            return Some(&ptr[pos..]);
         }
         shift += 7;
     }
-    &[]
+    None
 }
 
 fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
     let ptr = input.data();
     let limit = input.size();
-    let g = get_varint64ptr(ptr, value);
-    if g.is_empty() {
-        false
-    } else {
-        let remain = limit - g.len();
-        *input = input.slice(remain);
+    if let Some(q) = get_varint64ptr(ptr, value) {
+        let adv = limit - q.len();
+        input.data_bytes.advance(adv);
         true
+    } else {
+        false
     }
 }
 
@@ -284,7 +282,7 @@ mod tests {
             let expect = (i / 32) << (i % 32);
             let mut actual = 0;
             let start = p;
-            p = get_varint32ptr(p, &mut actual);
+            p = get_varint32ptr(p, &mut actual).unwrap();
             assert_eq!(expect, actual);
             if i != 32 * 32u32 - 1 {
                 assert!(!p.is_empty());
@@ -319,11 +317,97 @@ mod tests {
         for value in values.iter() {
             let mut actual = 0u64;
             let start = p;
-            p = get_varint64ptr(p, &mut actual);
+            p = get_varint64ptr(p, &mut actual).unwrap();
             assert_eq!(*value, actual);
             let length = (p.as_ptr() as usize - start.as_ptr() as usize) / size_of::<u8>();
             assert_eq!(varint_length(actual), length as u32);
         }
         assert!(p.is_empty())
+    }
+
+    #[test]
+    fn test_varint32overflow() {
+        let mut result = 0u32;
+        let mut input = BytesMut::new();
+        input.put_u8(0x81);
+        input.put_u8(0x82);
+        input.put_u8(0x83);
+        input.put_u8(0x84);
+        input.put_u8(0x85);
+        input.put_u8(0x11);
+        let p = get_varint32ptr(&input[..], &mut result);
+        assert_eq!(p, None)
+    }
+    #[test]
+    fn test_varint32truncation() {
+        let large_value = (1u32 << 31) + 100;
+        let mut s = BytesMut::new();
+        put_varint32(&mut s, large_value);
+        let mut result = 0u32;
+        for len in 0..s.len() - 1 {
+            let p = get_varint32ptr(&s[..len], &mut result);
+            assert_eq!(p, None);
+        }
+        let p = get_varint32ptr(&s[..], &mut result);
+        assert_ne!(p, None);
+        assert_eq!(result, large_value);
+    }
+    #[test]
+    fn test_varint64overflow() {
+        let mut result = 0u64;
+        let mut input = BytesMut::new();
+        input.put_u8(0x81);
+        input.put_u8(0x82);
+        input.put_u8(0x83);
+        input.put_u8(0x84);
+        input.put_u8(0x85);
+        input.put_u8(0x81);
+        input.put_u8(0x82);
+        input.put_u8(0x83);
+        input.put_u8(0x84);
+        input.put_u8(0x85);
+        input.put_u8(0x11);
+        let p = get_varint64ptr(&input[..], &mut result);
+        assert_eq!(p, None)
+    }
+    #[test]
+    fn test_varint64truncation() {
+        let large_value = (1u64 << 63) + 100;
+        let mut s = BytesMut::new();
+        put_varint64(&mut s, large_value);
+        let mut result = 0u64;
+        for len in 0..s.len() - 1 {
+            let p = get_varint64ptr(&s[..len], &mut result);
+            assert_eq!(p, None);
+        }
+        let p = get_varint64ptr(&s[..], &mut result);
+        assert_ne!(p, None);
+        assert_eq!(result, large_value);
+    }
+
+    #[test]
+    fn test_strings() {
+        let mut s = BytesMut::new();
+        put_length_prefixed_slice(&mut s, "".into());
+        put_length_prefixed_slice(&mut s, "foo".into());
+        put_length_prefixed_slice(&mut s, "bar".into());
+        let mut str = String::new();
+        for _ in 0..200 {
+            str.push('x');
+        }
+        put_length_prefixed_slice(&mut s, Slice::new_from_str(&str));
+
+        let mut input = Slice::new_from_array(&s[..]);
+        println!("input 1 : {}", input.to_string());
+        let mut v = Slice::new(bytes::Bytes::new());
+        assert!(get_length_prefixed_slice(&mut input, &mut v));
+        assert_eq!(v.to_string().as_str(), "");
+        println!("input 2 : {}", input.to_string());
+        assert!(get_length_prefixed_slice(&mut input, &mut v));
+        assert_eq!(v.to_string().as_str(), "foo");
+        assert!(get_length_prefixed_slice(&mut input, &mut v));
+        assert_eq!(v.to_string().as_str(), "bar");
+        assert!(get_length_prefixed_slice(&mut input, &mut v));
+        assert_eq!("", input.to_string());
     }
 }
