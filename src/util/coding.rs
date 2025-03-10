@@ -391,11 +391,8 @@ mod tests {
         put_length_prefixed_slice(&mut s, "".into());
         put_length_prefixed_slice(&mut s, "foo".into());
         put_length_prefixed_slice(&mut s, "bar".into());
-        let mut str = String::new();
-        for _ in 0..200 {
-            str.push('x');
-        }
-        put_length_prefixed_slice(&mut s, Slice::new_from_str(&str));
+        let str = "x".repeat(200);
+        put_length_prefixed_slice(&mut s, Slice::new_from_string(str));
 
         let mut input = Slice::new_from_array(&s[..]);
         println!("input 1 : {}", input.to_string());
@@ -408,6 +405,7 @@ mod tests {
         assert!(get_length_prefixed_slice(&mut input, &mut v));
         assert_eq!(v.to_string().as_str(), "bar");
         assert!(get_length_prefixed_slice(&mut input, &mut v));
+        assert_eq!(v.to_string(), "x".repeat(200));
         assert_eq!("", input.to_string());
     }
 }
