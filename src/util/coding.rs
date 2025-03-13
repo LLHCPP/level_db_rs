@@ -31,7 +31,7 @@ fn encode_fixed64(dst: &mut [u8], value: u64) {
     dst[6] = (value >> 48) as u8;
     dst[7] = (value >> 56) as u8;
 }
-fn decode_fixed64(src: &[u8]) -> u64 {
+pub fn decode_fixed64(src: &[u8]) -> u64 {
     src[0] as u64
         | ((src[1] as u64) << 8)
         | ((src[2] as u64) << 16)
@@ -41,7 +41,7 @@ fn decode_fixed64(src: &[u8]) -> u64 {
         | ((src[6] as u64) << 48)
         | ((src[7] as u64) << 56)
 }
-fn put_fixed64(dst: &mut BytesMut, value: u64) {
+pub fn put_fixed64(dst: &mut BytesMut, value: u64) {
     let mut buf: [u8; size_of::<u64>()] = [0; size_of::<u64>()];
     encode_fixed64(&mut buf, value);
     dst.put_slice(&buf);

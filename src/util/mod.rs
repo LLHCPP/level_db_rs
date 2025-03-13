@@ -1,7 +1,9 @@
 pub mod arena;
 mod bloom_filter_policy;
+mod bytewise_comparator_impl;
 mod cache;
-mod coding;
+pub mod coding;
+pub(crate) mod comparator;
 mod filter_policy;
 mod hash;
 pub use hash::hash;

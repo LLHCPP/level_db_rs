@@ -13,3 +13,4 @@ criterion = "0.5.1"
 bytes = "1.10.0"
 bumpalo = { version = "3.17.0", features = ["collections", "boxed", "serde"] }
 lru = "0.13.0"
+log = "0.4.26"
