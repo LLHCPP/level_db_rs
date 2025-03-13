@@ -1,4 +1,3 @@
-use crate::db::internal_key_comparator::ValueType::KTypeValue;
 use crate::obj::slice::Slice;
 use crate::util::coding;
 use crate::util::comparator::Comparator;
