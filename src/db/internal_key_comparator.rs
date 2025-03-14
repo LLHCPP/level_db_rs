@@ -1,13 +1,25 @@
 use crate::obj::slice::Slice;
 use crate::util::coding;
+use crate::util::coding::decode_fixed64;
 use crate::util::comparator::Comparator;
 use bytes::{BufMut, BytesMut};
-use std::cmp::Ordering;
+use std::cmp::{Ordering, PartialEq};
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Eq)]
+#[repr(u8)]
 enum ValueType {
     KTypeDeletion = 0x0,
     KTypeValue = 0x1,
+}
+impl TryFrom<u8> for ValueType {
+    type Error = &'static str;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x0 => Ok(ValueType::KTypeDeletion),
+            0x1 => Ok(ValueType::KTypeValue),
+            _ => Err("Invalid value for ValueType"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -37,11 +49,25 @@ fn append_internal_key(result: &mut BytesMut, key: ParsedInternalKey) {
     coding::put_fixed64(result, pack_sequence_and_type(key.sequence, key.value_type))
 }
 
+#[inline]
+fn parse_internal_key(internal_key: &Slice, result: &mut ParsedInternalKey) -> bool {
+    let n = internal_key.len();
+    if n < 8 {
+        return false;
+    }
+    let num = decode_fixed64(&internal_key.data()[n - 8..]);
+    let c = (num as u8) & 0xff;
+    result.sequence = num >> 8;
+    result.value_type = ValueType::try_from(c).unwrap();
+    result.user_key = internal_key.slice(n - 8);
+    c <= ValueType::KTypeValue as u8
+}
+
 struct InternalKeyComparator<T: Comparator> {
     user_comparator_: T,
 }
 impl<T: Comparator> Comparator for InternalKeyComparator<T> {
-    fn compare(&mut self, akey: &Slice, bkey: &Slice) -> Ordering {
+    fn compare(&self, akey: &Slice, bkey: &Slice) -> Ordering {
         let mut r = self
             .user_comparator_
             .compare(&extract_user_key(akey), &extract_user_key(bkey));
@@ -61,7 +87,7 @@ impl<T: Comparator> Comparator for InternalKeyComparator<T> {
         "leveldb.InternalKeyComparator"
     }
 
-    fn find_shortest_separator(&mut self, start: &mut BytesMut, limit: &Slice) {
+    fn find_shortest_separator(&self, start: &mut BytesMut, limit: &Slice) {
         let user_start = extract_user_key(&(Slice::new_from_mut(start)));
         let user_limit = extract_user_key(limit);
         let mut tmp = start.clone();
@@ -86,7 +112,7 @@ impl<T: Comparator> Comparator for InternalKeyComparator<T> {
         }
     }
 
-    fn find_short_successor(&mut self, key: &mut BytesMut) {
+    fn find_short_successor(&self, key: &mut BytesMut) {
         let user_key = extract_user_key(&(Slice::new_from_mut(key)));
         let mut tmp = key.clone();
         self.user_comparator_.find_short_successor(&mut tmp);
@@ -105,6 +131,90 @@ impl<T: Comparator> Comparator for InternalKeyComparator<T> {
                     == Ordering::Less
             );
             *key = tmp;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::db::internal_key_comparator::ValueType::KTypeValue;
+    use crate::db::internal_key_comparator::{
+        append_internal_key, parse_internal_key, InternalKeyComparator, ParsedInternalKey,
+        ValueType,
+    };
+    use crate::obj::slice::Slice;
+    use crate::util::bytewise_comparator_impl;
+    use crate::util::comparator::Comparator;
+    use bytes::BytesMut;
+    fn i_key(user_key: &BytesMut, seq: u64, vt: ValueType) -> BytesMut {
+        let mut encode = BytesMut::new();
+        append_internal_key(
+            &mut encode,
+            ParsedInternalKey {
+                user_key: Slice::new_from_mut(user_key),
+                sequence: seq,
+                value_type: vt,
+            },
+        );
+        encode
+    }
+    fn shorten(s: &BytesMut, l: &BytesMut) -> BytesMut {
+        let mut result = BytesMut::new();
+        let mut internal_key_comparator = InternalKeyComparator {
+            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
+        };
+        internal_key_comparator.find_shortest_separator(&mut result, &Slice::new_from_mut(l));
+        result
+    }
+    fn shortsuccessor(s: &BytesMut) -> BytesMut {
+        let mut result = BytesMut::new();
+        let mut internal_key_comparator = InternalKeyComparator {
+            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
+        };
+        internal_key_comparator.find_short_successor(&mut result);
+        result
+    }
+
+    fn test_key(key: &BytesMut, seq: u64, vt: ValueType) {
+        let encode = i_key(key, seq, vt.clone());
+        let in_slice = Slice::new_from_mut(&encode);
+        let mut decode = ParsedInternalKey {
+            user_key: Slice::new_from_str(""),
+            sequence: 0,
+            value_type: KTypeValue,
+        };
+        assert!(parse_internal_key(&in_slice, &mut decode));
+        assert_eq!(&key[..], decode.user_key.data());
+        assert_eq!(seq, decode.sequence);
+        assert_eq!(vt, decode.value_type);
+        assert!(!parse_internal_key(
+            &Slice::new_from_str("bar"),
+            &mut decode
+        ))
+    }
+
+    #[test]
+    fn test_InternalKey_EncodeDecode() {
+        let keys: [&'static str; 4] = ["", "k", "hello", "longggggggggggggggggggggg"];
+        let seq: [u64; 12] = [
+            1,
+            2,
+            3,
+            (1u64 << 8) - 1,
+            1u64 << 8,
+            (1u64 << 8) + 1,
+            (1u64 << 16) - 1,
+            1u64 << 16,
+            (1u64 << 16) + 1,
+            (1u64 << 32) - 1,
+            1u64 << 32,
+            (1u64 << 32) + 1,
+        ];
+        for key in keys.iter() {
+            for s in seq.iter() {
+                test_key(&BytesMut::from(*key), *s, KTypeValue);
+                test_key(&BytesMut::from("hello"), 1, ValueType::KTypeDeletion);
+            }
         }
     }
 }

@@ -139,7 +139,7 @@ impl Slice {
         self.data_bytes.len() >= x.data_bytes.len()
             && self.data_bytes[..x.data_bytes.len()] == x.data_bytes[..]
     }
-    pub fn slice(&mut self, n: usize) -> Slice {
+    pub fn slice(&self, n: usize) -> Slice {
         let data_bytes = self.data_bytes.slice(..min(n, self.len()));
         Slice { data_bytes }
     }

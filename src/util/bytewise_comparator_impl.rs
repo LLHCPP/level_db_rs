@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 static BYTEWISE_COMPARATOR: BytewiseComparatorImpl = BytewiseComparatorImpl {};
 static BYTEWISE: OnceLock<Arc<dyn Comparator>> = OnceLock::new();
-struct BytewiseComparatorImpl {}
+pub struct BytewiseComparatorImpl {}
 impl Comparator for BytewiseComparatorImpl {
-    fn compare(&mut self, a: &Slice, b: &Slice) -> Ordering {
+    fn compare(&self, a: &Slice, b: &Slice) -> Ordering {
         a.compare(b)
     }
 
@@ -17,7 +17,7 @@ impl Comparator for BytewiseComparatorImpl {
         "leveldb.BytewiseComparator"
     }
 
-    fn find_shortest_separator(&mut self, start: &mut BytesMut, limit: &Slice) {
+    fn find_shortest_separator(&self, start: &mut BytesMut, limit: &Slice) {
         let min_length = std::cmp::min(start.len(), limit.len());
         let mut diff_index = 0usize;
         while diff_index < min_length && start[diff_index] == limit[diff_index] {
@@ -35,7 +35,7 @@ impl Comparator for BytewiseComparatorImpl {
         }
     }
 
-    fn find_short_successor(&mut self, key: &mut BytesMut) {
+    fn find_short_successor(&self, key: &mut BytesMut) {
         let mut len = 0usize;
         for byte in key.iter_mut() {
             if *byte != 0xff {

@@ -1,6 +1,6 @@
 pub mod arena;
 mod bloom_filter_policy;
-mod bytewise_comparator_impl;
+pub mod bytewise_comparator_impl;
 mod cache;
 pub mod coding;
 pub(crate) mod comparator;
