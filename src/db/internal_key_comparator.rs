@@ -5,9 +5,9 @@ use crate::util::comparator::Comparator;
 use bytes::{BufMut, BytesMut};
 use std::cmp::{Ordering, PartialEq};
 
-#[derive(Debug, PartialEq, PartialOrd, Clone, Eq)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Eq, Copy)]
 #[repr(u8)]
-enum ValueType {
+pub enum ValueType {
     KTypeDeletion = 0x0,
     KTypeValue = 0x1,
 }
@@ -23,16 +23,16 @@ impl TryFrom<u8> for ValueType {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-struct ParsedInternalKey {
-    user_key: Slice,
-    sequence: u64,
-    value_type: ValueType,
+pub struct ParsedInternalKey {
+    pub(crate) user_key: Slice,
+    pub(crate) sequence: u64,
+    pub(crate) value_type: ValueType,
 }
 
 const K_MAX_SEQUENCE_NUMBER: u64 = ((0x1u64 << 56) - 1);
 const K_VALUE_TYPE_FOR_SEEK: ValueType = ValueType::KTypeValue;
 #[inline]
-fn extract_user_key(internal_key: &Slice) -> Slice {
+pub fn extract_user_key(internal_key: &Slice) -> Slice {
     debug_assert!(internal_key.len() >= 8);
     Slice::new_from_slice(internal_key, 0..internal_key.len() - 8)
 }
@@ -44,7 +44,7 @@ fn pack_sequence_and_type(seq: u64, t: ValueType) -> u64 {
     (seq << 8) | (t as u64)
 }
 #[inline]
-fn append_internal_key(result: &mut BytesMut, key: ParsedInternalKey) {
+pub fn append_internal_key(result: &mut BytesMut, key: &ParsedInternalKey) {
     result.put_slice(&key.user_key.data());
     coding::put_fixed64(result, pack_sequence_and_type(key.sequence, key.value_type))
 }
@@ -140,7 +140,7 @@ mod tests {
     use crate::db::internal_key_comparator::ValueType::KTypeValue;
     use crate::db::internal_key_comparator::{
         append_internal_key, parse_internal_key, InternalKeyComparator, ParsedInternalKey,
-        ValueType,
+        ValueType, K_MAX_SEQUENCE_NUMBER, K_VALUE_TYPE_FOR_SEEK,
     };
     use crate::obj::slice::Slice;
     use crate::util::bytewise_comparator_impl;
@@ -150,7 +150,7 @@ mod tests {
         let mut encode = BytesMut::new();
         append_internal_key(
             &mut encode,
-            ParsedInternalKey {
+            &ParsedInternalKey {
                 user_key: Slice::new_from_mut(user_key),
                 sequence: seq,
                 value_type: vt,
@@ -159,15 +159,15 @@ mod tests {
         encode
     }
     fn shorten(s: &BytesMut, l: &BytesMut) -> BytesMut {
-        let mut result = BytesMut::new();
-        let mut internal_key_comparator = InternalKeyComparator {
+        let mut result = s.clone();
+        let internal_key_comparator = InternalKeyComparator {
             user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
         };
         internal_key_comparator.find_shortest_separator(&mut result, &Slice::new_from_mut(l));
         result
     }
     fn shortsuccessor(s: &BytesMut) -> BytesMut {
-        let mut result = BytesMut::new();
+        let mut result = s.clone();
         let mut internal_key_comparator = InternalKeyComparator {
             user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
         };
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn test_InternalKey_EncodeDecode() {
+    fn test_internal_key_encode_decode() {
         let keys: [&'static str; 4] = ["", "k", "hello", "longggggggggggggggggggggg"];
         let seq: [u64; 12] = [
             1,
@@ -216,5 +216,91 @@ mod tests {
                 test_key(&BytesMut::from("hello"), 1, ValueType::KTypeDeletion);
             }
         }
+    }
+
+    #[test]
+    fn test_internal_key_short_separator() {
+        assert_eq!(
+            i_key(&BytesMut::from("foo"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("foo"), 99, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(&BytesMut::from("foo"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("foo"), 101, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(&BytesMut::from("foo"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(&BytesMut::from("foo"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("bar"), 99, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(
+                &BytesMut::from("g"),
+                K_MAX_SEQUENCE_NUMBER,
+                K_VALUE_TYPE_FOR_SEEK
+            ),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("hello"), 200, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(&BytesMut::from("foo"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foo"), 100, KTypeValue),
+                &i_key(&BytesMut::from("foobar"), 200, KTypeValue)
+            )
+        );
+        assert_eq!(
+            i_key(&BytesMut::from("foobar"), 100, KTypeValue),
+            shorten(
+                &i_key(&BytesMut::from("foobar"), 100, KTypeValue),
+                &i_key(&BytesMut::from("foo"), 200, KTypeValue)
+            )
+        )
+    }
+    #[test]
+    fn test_internal_key_shortest_successor() {
+        assert_eq!(
+            i_key(
+                &BytesMut::from("g"),
+                K_MAX_SEQUENCE_NUMBER,
+                K_VALUE_TYPE_FOR_SEEK
+            ),
+            shortsuccessor(&i_key(&BytesMut::from("foo"), 100, KTypeValue))
+        );
+        let data = b"\xff\xff";
+        assert_eq!(
+            i_key(&BytesMut::from(&data[..]), 100, KTypeValue),
+            shortsuccessor(&i_key(&BytesMut::from(&data[..]), 100, KTypeValue))
+        );
+    }
+    #[test]
+    fn test_parsed_internal_key_debug_string() {
+        let key = ParsedInternalKey {
+            user_key: Slice::new_from_str("The \"key\" in 'single quotes'"),
+            sequence: 42,
+            value_type: KTypeValue,
+        };
+        let debug_str = format!("{:?}", key);
+        assert_eq!(
+            r#"ParsedInternalKey { user_key: Slice { data_bytes: b"The \"key\" in 'single quotes'" }, sequence: 42, value_type: KTypeValue }"#,
+            debug_str.as_str()
+        );
     }
 }
