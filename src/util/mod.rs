@@ -4,6 +4,7 @@ pub mod bytewise_comparator_impl;
 mod cache;
 pub mod coding;
 pub(crate) mod comparator;
+mod crc32c;
 mod filter_policy;
 mod hash;
 pub use hash::hash;
