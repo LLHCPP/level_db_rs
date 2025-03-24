@@ -5,6 +5,7 @@ mod cache;
 pub mod coding;
 pub(crate) mod comparator;
 mod crc32c;
+mod env;
 mod filter_policy;
 mod hash;
 pub use hash::hash;
