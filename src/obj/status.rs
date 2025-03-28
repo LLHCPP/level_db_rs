@@ -36,7 +36,7 @@ impl Status {
             0 => len1,
             _ => len1 + len2 + 2,
         };
-        let mut result = BytesMut::with_capacity((size + 1));
+        let mut result = BytesMut::with_capacity(size + 1);
         /*result.extend_from_slice(&(size as u32).to_le_bytes());*/
         result.put_u8(code as u8);
         result.extend_from_slice(msg.data());
@@ -98,7 +98,7 @@ impl Status {
         Status::new(StatusCode::KnotFound, msg, msg2)
     }
 
-    fn is_not_fund(&self) -> bool {
+    fn is_not_found(&self) -> bool {
         self.code() == StatusCode::KnotFound
     }
     fn corruption(msg: &Slice, msg2: &Slice) -> Status {
@@ -138,7 +138,7 @@ mod tests {
         assert!(status2.is_ok());
         let status = Status::not_found(&"custom NotFound status message".into(), &"".into());
         let status2 = status;
-        assert!(status2.is_not_fund());
+        assert!(status2.is_not_found());
         assert_eq!(
             b"NotFound: custom NotFound status message",
             &status2.to_string()[..]
