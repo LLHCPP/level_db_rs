@@ -88,6 +88,14 @@ impl Status {
     pub fn code(&self) -> StatusCode {
         self.code
     }
+
+    pub fn from_io_error(err: std::io::Error, filename: &str) -> Self {
+        use std::io::ErrorKind;
+        match err.kind() {
+            ErrorKind::NotFound => Status::not_found(filename, Some(err.to_string().as_str())),
+            _ => Status::io_error(filename, Some(err.to_string().as_str())),
+        }
+    }
 }
 
 // Implement Display for string representation
@@ -125,6 +133,9 @@ mod tests {
         let status = Status::not_found("custom NotFound status message", None);
         let status2 = status;
         assert!(status2.is_not_found());
-        assert_eq!("NotFound: custom NotFound status message", status2.to_string());
+        assert_eq!(
+            "NotFound: custom NotFound status message",
+            status2.to_string()
+        );
     }
 }

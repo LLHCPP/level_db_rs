@@ -8,5 +8,7 @@ mod crc32c;
 mod env;
 mod filter_policy;
 mod hash;
+mod random_access_file;
+mod sequential_file;
 pub use hash::hash;
 pub use hash::hash_string;

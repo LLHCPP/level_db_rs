@@ -15,3 +15,4 @@ bumpalo = { version = "3.17.0", features = ["collections", "boxed", "serde"] }
 lru = "0.13.0"
 log = "0.4.26"
 crc32c = "0.6.8"
+positioned-io = "0.3.3"
