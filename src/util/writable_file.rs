@@ -1,5 +1,7 @@
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use rustix::fs::fcntl_fullfsync;
 use rustix::fs::{fdatasync, fsync};
 use std::fs::{File, OpenOptions};
 use std::io;
