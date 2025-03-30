@@ -1,5 +1,5 @@
 use crate::obj::slice::Slice;
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{BufMut, BytesMut};
 
 fn encode_fixed32(dst: &mut [u8], value: u32) {
     dst[0] = (value >> 0) as u8;
@@ -155,7 +155,7 @@ fn get_varint32(input: &mut Slice, value: &mut u32) -> bool {
     let limit = input.size();
     if let Some(q) = get_varint32ptr(ptr, value) {
         let adv = limit - q.len();
-        input.data_bytes.advance(adv);
+        input.advance(adv);
         true
     } else {
         false
@@ -187,7 +187,7 @@ fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
     let limit = input.size();
     if let Some(q) = get_varint64ptr(ptr, value) {
         let adv = limit - q.len();
-        input.data_bytes.advance(adv);
+        input.advance(adv);
         true
     } else {
         false

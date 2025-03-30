@@ -1,6 +1,7 @@
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use bytes::BytesMut;
+use memmap2::Mmap;
 use positioned_io;
 use positioned_io::ReadAt;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -94,6 +95,14 @@ impl StdRandomAccessFile {
     }
 }
 
+impl Drop for StdRandomAccessFile {
+    fn drop(&mut self) {
+        if self.has_permanent_fd_ {
+            self.limiter.release();
+        }
+    }
+}
+
 impl RandomAccessFile for StdRandomAccessFile {
     fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status> {
         let temp_file = if let Some(file) = &self.file {
@@ -123,5 +132,34 @@ impl RandomAccessFile for StdRandomAccessFile {
             self.file = None;
         };
         res
+    }
+}
+
+struct PosixMmapReadableFile {
+    limiter: Arc<Limiter>,
+    m_map: Arc<Mmap>,
+    filename: String,
+}
+
+impl PosixMmapReadableFile {
+    fn new(m_map_base: Mmap, filename: String, limiter: Arc<Limiter>) -> PosixMmapReadableFile {
+        PosixMmapReadableFile {
+            limiter,
+            m_map: Arc::new(m_map_base),
+            filename,
+        }
+    }
+}
+
+impl RandomAccessFile for PosixMmapReadableFile {
+    fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status> {
+        if offset + n as u64 > self.m_map.len() as u64 {
+            Err(Status::io_error(
+                &self.filename,
+                Some("offset + n out of range"),
+            ))
+        } else {
+            Ok(Slice::new_from_mmap(self.m_map.clone(), offset as usize, n))
+        }
     }
 }
