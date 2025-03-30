@@ -17,3 +17,4 @@ log = "0.4.26"
 crc32c = "0.6.8"
 positioned-io = "0.3.3"
 memmap2 = "0.9.5"
+rustix = { version = "1.0.3", features = ["fs"], optional = true}
