@@ -2,7 +2,7 @@ use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use rustix::fs::fcntl_fullfsync;
-use rustix::fs::{fdatasync, fsync};
+use rustix::fs::{fdatasync};
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Write};
@@ -51,7 +51,7 @@ pub fn sync_fd(file: &File) -> io::Result<()> {
         // 如果 fdatasync 失败，继续回退
     }
     // 最后回退到标准的 fsync
-    fsync(fd)?;
+    file.sync_all()?;
     Ok(())
 }
 
