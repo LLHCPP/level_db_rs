@@ -7,16 +7,19 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
 pub trait SequentialFile: Send + Sync {
+    fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> 
+    where Self: Sized;
     fn read(&mut self, n: usize) -> Result<Slice, Status>;
     fn skip(&mut self, n: i64) -> Status;
 }
 
-struct StdSequentialFile {
+pub struct StdSequentialFile {
     file: BufReader<File>,
     filename: String, // 用于错误报告
 }
-impl StdSequentialFile {
-    pub fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
+
+impl SequentialFile for StdSequentialFile {
+    fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
         let file = File::open(filename.as_ref())?;
         let buffered_file = BufReader::new(file);
         Ok(StdSequentialFile {
@@ -24,9 +27,6 @@ impl StdSequentialFile {
             filename: filename.as_ref().to_string_lossy().into_owned(),
         })
     }
-}
-
-impl SequentialFile for StdSequentialFile {
     fn read(&mut self, n: usize) -> Result<Slice, Status> {
         // 创建一个 BytesMut 来存储数据
         let mut buffer = BytesMut::with_capacity(n);
