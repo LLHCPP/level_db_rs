@@ -1,18 +1,19 @@
-use std::fs::File;
-use std::io::{self};
-use std::os::fd::BorrowedFd;
 // 类 Unix 系统相关依赖
 #[cfg(unix)]
 use rustix::fs::fcntl_lock;
+use std::fs::File;
+use std::io::{self};
+use std::os::fd::BorrowedFd;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
 // Windows 系统相关依赖
 use crate::obj::status_rs::Status;
-use crate::util::sequential_file::{SequentialFile, StdSequentialFile};
+use crate::util::sequential_file::SequentialFile;
 use rustix::fs::FlockOperation;
 #[cfg(windows)]
-use rustix::windows::lock_file; // 假设 rustix 提供此函数
+use rustix::windows::lock_file;
+// 假设 rustix 提供此函数
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
 
