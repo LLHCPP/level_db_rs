@@ -7,8 +7,9 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
 pub trait SequentialFile: Send + Sync {
-    fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> 
-    where Self: Sized;
+    fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self>
+    where
+        Self: Sized;
     fn read(&mut self, n: usize) -> Result<Slice, Status>;
     fn skip(&mut self, n: i64) -> Status;
 }

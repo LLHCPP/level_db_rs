@@ -4,10 +4,15 @@ use bytes::BytesMut;
 use memmap2::Mmap;
 use positioned_io;
 use positioned_io::ReadAt;
+use std::fs::File;
+use std::io;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
 pub trait RandomAccessFile: Send + Sync {
+    fn new<P: AsRef<std::path::Path>>(filename: P, limiter: Arc<Limiter>) -> io::Result<Self>
+    where
+        Self: Sized;
     fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status>;
 }
 
@@ -61,38 +66,11 @@ impl Limiter {
     }
 }
 
-struct StdRandomAccessFile {
+pub(crate) struct StdRandomAccessFile {
     limiter: Arc<Limiter>,
     has_permanent_fd_: bool,
     file: Option<positioned_io::RandomAccessFile>,
     filename: String, // 用于错误报告
-}
-
-impl StdRandomAccessFile {
-    pub fn new<P: AsRef<std::path::Path>>(
-        filename: P,
-        limiter: Arc<Limiter>,
-    ) -> StdRandomAccessFile {
-        if limiter.acquire() {
-            let file = match positioned_io::RandomAccessFile::open(filename.as_ref()) {
-                Ok(file) => Some(file),
-                Err(_) => None,
-            };
-            StdRandomAccessFile {
-                limiter,
-                has_permanent_fd_: true,
-                file,
-                filename: filename.as_ref().to_string_lossy().into_owned(),
-            }
-        } else {
-            StdRandomAccessFile {
-                limiter,
-                has_permanent_fd_: false,
-                file: None,
-                filename: filename.as_ref().to_string_lossy().into_owned(),
-            }
-        }
-    }
 }
 
 impl Drop for StdRandomAccessFile {
@@ -104,6 +82,30 @@ impl Drop for StdRandomAccessFile {
 }
 
 impl RandomAccessFile for StdRandomAccessFile {
+    fn new<P: AsRef<std::path::Path>>(
+        filename: P,
+        limiter: Arc<Limiter>,
+    ) -> Result<StdRandomAccessFile, std::io::Error> {
+        if limiter.acquire() {
+            let file = match positioned_io::RandomAccessFile::open(filename.as_ref()) {
+                Ok(file) => Some(file),
+                Err(_) => None,
+            };
+            Ok(StdRandomAccessFile {
+                limiter,
+                has_permanent_fd_: true,
+                file,
+                filename: filename.as_ref().to_string_lossy().into_owned(),
+            })
+        } else {
+            Ok(StdRandomAccessFile {
+                limiter,
+                has_permanent_fd_: false,
+                file: None,
+                filename: filename.as_ref().to_string_lossy().into_owned(),
+            })
+        }
+    }
     fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status> {
         let temp_file = if let Some(file) = &self.file {
             file // 如果文件已存在，直接使用
@@ -135,23 +137,33 @@ impl RandomAccessFile for StdRandomAccessFile {
     }
 }
 
-struct PosixMmapReadableFile {
+pub(crate) struct PosixMmapReadableFile {
     limiter: Arc<Limiter>,
     m_map: Arc<Mmap>,
     filename: String,
+    file: Arc<File>,
 }
 
-impl PosixMmapReadableFile {
-    fn new(m_map_base: Mmap, filename: String, limiter: Arc<Limiter>) -> PosixMmapReadableFile {
-        PosixMmapReadableFile {
-            limiter,
-            m_map: Arc::new(m_map_base),
-            filename,
-        }
+impl Drop for PosixMmapReadableFile {
+    fn drop(&mut self) {
+        self.limiter.release();
     }
 }
 
 impl RandomAccessFile for PosixMmapReadableFile {
+    fn new<P: AsRef<std::path::Path>>(
+        filename: P,
+        limiter: Arc<Limiter>,
+    ) -> io::Result<PosixMmapReadableFile> {
+        let file = File::open(filename.as_ref())?;
+        let mmap = unsafe { Mmap::map(&file)? };
+        Ok(PosixMmapReadableFile {
+            limiter,
+            m_map: Arc::new(mmap),
+            filename: filename.as_ref().to_string_lossy().into_owned(),
+            file: Arc::new(file),
+        })
+    }
     fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status> {
         if offset + n as u64 > self.m_map.len() as u64 {
             Err(Status::io_error(
