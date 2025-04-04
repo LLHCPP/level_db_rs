@@ -4,7 +4,7 @@ use std::thread::{self, JoinHandle};
 type Task = Box<dyn FnOnce() + Send + 'static>;
 
 pub(crate) struct ThreadPool {
-    sender: Sender<Task>,
+    sender: Option<Sender<Task>>,
     handles: Vec<JoinHandle<()>>,
 }
 
@@ -23,7 +23,10 @@ impl ThreadPool {
             handles.push(handle);
         }
 
-        ThreadPool { sender, handles }
+        ThreadPool {
+            sender: Some(sender),
+            handles,
+        }
     }
 
     pub(crate) fn execute<F>(&self, f: F)
@@ -31,21 +34,19 @@ impl ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         let task = Box::new(f);
-        self.sender.send(task).unwrap();
+        if let Some(sender) = self.sender.as_ref() {
+            sender.send(task).unwrap();
+        } else {
+            log::error!("ThreadPool is dropped");
+        }
     }
 }
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
+        self.sender.take();
         for handle in self.handles.drain(..) {
             handle.join().unwrap();
         }
     }
-}
-
-fn main() {
-    let pool = ThreadPool::new(2);
-    pool.execute(|| println!("Task 1"));
-    pool.execute(|| println!("Task 2"));
-    thread::sleep(std::time::Duration::from_millis(100));
 }
