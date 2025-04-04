@@ -4,8 +4,11 @@ use bytes::BytesMut;
 use memmap2::Mmap;
 use positioned_io;
 use positioned_io::ReadAt;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
+#[cfg(unix)]
+use {crate::util::K_OPEN_BASE_FLAGS, std::os::unix::fs::OpenOptionsExt};
+
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
@@ -155,7 +158,13 @@ impl RandomAccessFile for PosixMmapReadableFile {
         filename: P,
         limiter: Arc<Limiter>,
     ) -> io::Result<PosixMmapReadableFile> {
-        let file = File::open(filename.as_ref())?;
+        let mut option = OpenOptions::new();
+        option.read(true);
+        #[cfg(unix)]
+        {
+            option.custom_flags(K_OPEN_BASE_FLAGS); // 对应 O_CLOEXEC
+        }
+        let file = option.open(filename.as_ref())?;
         let mmap = unsafe { Mmap::map(&file)? };
         Ok(PosixMmapReadableFile {
             limiter,

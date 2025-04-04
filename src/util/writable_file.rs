@@ -8,8 +8,13 @@ use std::io;
 use std::io::{BufWriter, Write};
 use std::os::fd::{AsRawFd, BorrowedFd};
 use std::path::Path;
+#[cfg(unix)]
+use {crate::util::K_OPEN_BASE_FLAGS, std::os::unix::fs::OpenOptionsExt};
 
 pub trait WritableFile {
+    fn new<P: AsRef<Path>>(filename: P, truncate: bool) -> io::Result<Self>
+    where
+        Self: Sized;
     fn append(&mut self, data: &Slice) -> Status;
     fn flush(&mut self) -> Status;
     fn sync(&mut self) -> Status;
@@ -55,34 +60,15 @@ pub fn sync_fd(file: &File) -> io::Result<()> {
     Ok(())
 }
 
-struct StdWritableFile {
+pub(crate) struct StdWritableFile {
     write_buf: BufWriter<File>,
     filename: String,
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     dirname_: String,
     is_manifest_: bool,
 }
 impl StdWritableFile {
-    fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
-        let file = OpenOptions::new()
-            .write(true) // 启用写入权限
-            .append(true) // 启用追加模式
-            .create(true) // 如果文件不存在，则创建
-            .open(filename.as_ref())?;
-        let write_buf = BufWriter::with_capacity(K_WRITABLE_FILE_BUFFER_SIZE, file);
-        let filename = filename.as_ref().to_string_lossy().into_owned();
-        let is_manifest_ = is_manifest(&filename);
-        #[cfg(target_family = "unix")]
-        let dirname_ = dirname(&filename).unwrap_or(".").to_string();
-        Ok(StdWritableFile {
-            write_buf,
-            #[cfg(target_family = "unix")]
-            dirname_,
-            filename,
-            is_manifest_,
-        })
-    }
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     fn sync_dir_if_manifest(&self) -> Status {
         if !self.is_manifest_ {
             return Status::ok();
@@ -98,6 +84,34 @@ impl StdWritableFile {
 }
 
 impl WritableFile for StdWritableFile {
+    fn new<P: AsRef<Path>>(filename: P, truncate: bool) -> io::Result<Self> {
+        let mut option = OpenOptions::new();
+        option.write(true).create(true);
+        if truncate {
+            option.truncate(true);
+        } else {
+            option.append(true);
+        }
+        #[cfg(unix)]
+        {
+            option.mode(0o644);
+            option.custom_flags(K_OPEN_BASE_FLAGS); // 对应 O_CLOEXEC
+        }
+
+        let file = option.open(filename.as_ref())?;
+        let write_buf = BufWriter::with_capacity(K_WRITABLE_FILE_BUFFER_SIZE, file);
+        let filename = filename.as_ref().to_string_lossy().into_owned();
+        let is_manifest_ = is_manifest(&filename);
+        #[cfg(unix)]
+        let dirname_ = dirname(&filename).unwrap_or(".").to_string();
+        Ok(StdWritableFile {
+            write_buf,
+            #[cfg(unix)]
+            dirname_,
+            filename,
+            is_manifest_,
+        })
+    }
     fn append(&mut self, data: &Slice) -> Status {
         let write_data = data.data();
         match self.write_buf.write_all(write_data) {
@@ -114,7 +128,7 @@ impl WritableFile for StdWritableFile {
     }
 
     fn sync(&mut self) -> Status {
-        #[cfg(target_family = "unix")]
+        #[cfg(unix)]
         {
             let status = self.sync_dir_if_manifest();
             if !status.is_ok() {

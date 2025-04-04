@@ -1,9 +1,11 @@
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
+use crate::util::K_OPEN_BASE_FLAGS;
 use bytes::BytesMut;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
 pub trait SequentialFile: Send + Sync {
@@ -21,7 +23,13 @@ pub struct StdSequentialFile {
 
 impl SequentialFile for StdSequentialFile {
     fn new<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
-        let file = File::open(filename.as_ref())?;
+        let mut option = OpenOptions::new();
+        option.read(true);
+        #[cfg(unix)]
+        {
+            option.custom_flags(K_OPEN_BASE_FLAGS); // 对应 O_CLOEXEC
+        }
+        let file = option.open(filename.as_ref())?;
         let buffered_file = BufReader::new(file);
         Ok(StdSequentialFile {
             file: buffered_file,

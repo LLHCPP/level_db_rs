@@ -18,3 +18,5 @@ crc32c = "0.6.8"
 positioned-io = "0.3.3"
 memmap2 = "0.9.5"
 rustix = { version = "1.0.5", features = ["fs"]}
+libc = "0.2.169"
+crossbeam = "0.8.4"
