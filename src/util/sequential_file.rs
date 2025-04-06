@@ -42,7 +42,7 @@ impl SequentialFile for StdSequentialFile {
         buffer.resize(n, 0);
         match self.file.read(&mut buffer) {
             Ok(len) => {
-                let res = buffer.split_off(len).freeze();
+                let res = buffer.split_to(len).freeze();
                 Ok(Slice::new(res))
             }
             Err(err) => Err(Status::from_io_error(err, &self.filename)),

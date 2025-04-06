@@ -23,5 +23,8 @@ mod writable_file;
 
 mod thread_pool;
 
+mod random;
+mod testutil;
+
 pub use hash::hash;
 pub use hash::hash_string;

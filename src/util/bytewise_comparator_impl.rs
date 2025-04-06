@@ -1,9 +1,8 @@
 use crate::obj::slice::Slice;
 use crate::util::comparator::Comparator;
 use bytes::BytesMut;
-use log::debug;
 use std::cmp::Ordering;
-use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::sync::{Arc, OnceLock};
 
 static BYTEWISE_COMPARATOR: BytewiseComparatorImpl = BytewiseComparatorImpl {};
 static BYTEWISE: OnceLock<Arc<dyn Comparator>> = OnceLock::new();
@@ -48,7 +47,7 @@ impl Comparator for BytewiseComparatorImpl {
     }
 }
 
-fn BytewiseComparator() -> Arc<dyn Comparator> {
+fn byte_wise_comparator() -> Arc<dyn Comparator> {
     BYTEWISE
         .get_or_init(|| Arc::new(BytewiseComparatorImpl {}))
         .clone()
