@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::{env, fs, io, thread};
+use tracing::error;
 #[cfg(unix)]
 use {rustix::fs::fcntl_lock, std::os::unix::io::AsRawFd};
 #[cfg(windows)]
@@ -380,7 +381,7 @@ impl Env for StdEnv {
                 }
             }
             Err(err) => {
-                log::error!(
+                error!(
                     "lock file {} error: {}",
                     filename.as_ref().to_string_lossy(),
                     err
@@ -397,7 +398,7 @@ impl Env for StdEnv {
         match unlock_file(&file_lock.file) {
             Ok(_) => Status::ok(),
             Err(err) => {
-                log::error!("unlock file {} error: {}", file_lock.file_name, err);
+                error!("unlock file {} error: {}", file_lock.file_name, err);
                 Status::from_io_error(err, &file_lock.file_name)
             }
         }
@@ -452,7 +453,7 @@ mod tests {
     use crate::util::env::{get_env, read_file_to_string, Env, StdEnv};
     use crate::util::random::Random;
     use crate::util::sequential_file::{SequentialFile, StdSequentialFile};
-    use crate::util::testutil::{random_seed, random_string};
+    use crate::util::test_util::{random_seed, random_string};
     use crate::util::writable_file::{StdWritableFile, WritableFile};
     use bytes::{BufMut, BytesMut};
     use std::cmp::{max, min};

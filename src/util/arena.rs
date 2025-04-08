@@ -22,6 +22,7 @@ impl Arena {
 #[cfg(test)]
 mod tests {
     use crate::util::arena::Arena;
+    use bytes::BytesMut;
     #[test]
     fn test_alloc() {
         let mut test = Arena::new();

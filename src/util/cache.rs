@@ -1,26 +1,41 @@
 use crate::obj::slice::Slice;
 use crate::util::hash;
+use ahash::{AHashMap, RandomState};
 use lru::LruCache;
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
+pub(crate) trait Cache<T> {
+    fn new(capacity: NonZeroUsize) -> Self;
+    fn get(&mut self, key: &Slice) -> Option<Arc<T>>;
+    fn put(&mut self, key: Slice, value: Arc<T>);
+    fn erase(&mut self, key: &Slice);
+}
 
 struct LRUCache<T> {
-    cache: LruCache<Slice, T>,
+    lru_cache: LruCache<Slice, Arc<T>, RandomState>,
+    in_use: AHashMap<Slice, Arc<T>>,
 }
 impl<T> LRUCache<T> {
     fn new(capacity: NonZeroUsize) -> Self {
         LRUCache {
-            cache: LruCache::new(capacity),
+            lru_cache: LruCache::with_hasher(capacity, RandomState::new()),
+            in_use: AHashMap::new(),
         }
     }
-    fn get(&mut self, key: &Slice) -> Option<&T> {
-        self.cache.get(key)
+    fn get(&mut self, key: &Slice) -> Option<Arc<T>> {
+        match self.lru_cache.get(key) {
+            Some(value) => Some(value.clone()),
+            None => None,
+        }
     }
-    fn put(&mut self, key: Slice, value: T) {
-        self.cache.put(key, value);
+    fn put(&mut self, key: Slice, value: Arc<T>) {
+        self.lru_cache.put(key, value);
     }
     fn erase(&mut self, key: &Slice) {
-        self.cache.pop(key);
+        self.lru_cache.pop(key);
     }
 }
 const K_NUM_SHARD_BITS: usize = 4;
@@ -46,7 +61,7 @@ impl<T> ShardedLRUCache<T> {
     fn hash_slice(s: &Slice) -> u32 {
         hash(s.data(), 0)
     }
-    fn insert(&mut self, key: &Slice, value: T) {
+    fn insert(&mut self, key: &Slice, value: Arc<T>) {
         let hash = Self::hash_slice(key);
         self.shared[Self::shard(hash)].put(key.clone(), value)
     }
@@ -54,7 +69,7 @@ impl<T> ShardedLRUCache<T> {
         self.last_id_.fetch_add(1, Ordering::SeqCst);
         self.last_id_.load(Ordering::SeqCst)
     }
-    fn get(&mut self, key: &Slice) -> Option<&T> {
+    fn get(&mut self, key: &Slice) -> Option<Arc<T>> {
         let hash = Self::hash_slice(key);
         self.shared[Self::shard(hash)].get(key)
     }
@@ -93,16 +108,17 @@ impl CacheTest<i32> {
         buffer[3] = s[3];
         i32::from_be_bytes(buffer)
     }
-    fn lookup(&mut self, key: i32) -> &i32 {
+    fn lookup(&mut self, key: i32) -> Arc<i32> {
         let en_key = Self::encode_key(key);
         if let Some(value) = self.cache.get(&en_key) {
-            value
+            Arc::from(*value)
         } else {
-            &-1
+            Arc::from(-1)
         }
     }
     fn insert(&mut self, key: i32, value: i32) {
-        self.cache.insert(&CacheTest::encode_key(key), value)
+        self.cache
+            .insert(&CacheTest::encode_key(key), Arc::from(value))
     }
     fn erase(&mut self, key: i32) {
         self.cache.erase(&CacheTest::encode_key(key))

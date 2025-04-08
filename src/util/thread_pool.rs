@@ -1,5 +1,6 @@
 use crossbeam::channel::{unbounded, Sender};
 use std::thread::{self, JoinHandle};
+use tracing::error;
 
 type Task = Box<dyn FnOnce() + Send + 'static>;
 
@@ -37,7 +38,7 @@ impl ThreadPool {
         if let Some(sender) = self.sender.as_ref() {
             sender.send(task).unwrap();
         } else {
-            log::error!("ThreadPool is dropped");
+            error!("ThreadPool is dropped");
         }
     }
 }
