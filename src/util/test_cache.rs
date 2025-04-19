@@ -2,6 +2,7 @@ use ahash::AHashMap;
 use std::borrow::Borrow;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::ops::Deref;
 use std::ptr;
 use std::sync::Mutex;
 
@@ -280,6 +281,17 @@ where
     }
 }
 
+impl<K, V> Deref for LruRes<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    type Target = V;
+    fn deref(&self) -> &Self::Target {
+        self.value()
+    }
+}
+
 const K_NUM_SHARD_BITS: usize = 4;
 const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
 /*struct ShardedLRUCache<T> {
@@ -338,8 +350,8 @@ mod tests {
         assert_eq!(cache.get("key2").unwrap().value(), "value2"); // Moves back to in-use
         cache.put("key3".to_string(), "value3".to_string());
         assert_eq!(cache.get("key1"), None);
-        assert_eq!(cache.get("key2").unwrap().value(), "value2");
-        assert_eq!(cache.get("key3").unwrap().value(), "value3");
+        assert_eq!(*cache.get("key2").unwrap(), "value2");
+        assert_eq!(*cache.get("key3").unwrap(), "value3");
         // Update key2
         cache.put("key2".to_string(), "value2_updated".to_string());
         assert_eq!(cache.get("key2").unwrap().value(), "value2_updated");
