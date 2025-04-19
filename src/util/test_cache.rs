@@ -1,7 +1,8 @@
 use ahash::AHashMap;
+use std::borrow::Borrow;
+use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 trait Cache<T, S> {
@@ -12,16 +13,24 @@ trait Cache<T, S> {
     fn release(&mut self, key: &T);
 }
 // Node in either in-use or LRU doubly-linked list
-struct Node {
-    key: String,
-    value: String,
-    prev: *mut Node,
-    next: *mut Node,
+struct Node<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    key: K,
+    value: V,
+    prev: *mut Node<K, V>,
+    next: *mut Node<K, V>,
     ref_count: u64,
 }
 
-impl Node {
-    fn new(key: String, value: String, in_use: bool) -> *mut Node {
+impl<K, V> Node<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    fn new(key: K, value: V) -> *mut Node<K, V> {
         let node = Box::new(Node {
             key,
             value,
@@ -32,18 +41,26 @@ impl Node {
         Box::into_raw(node)
     }
 }
-pub struct LRUCacheInner {
+pub struct LRUCacheInner<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
     capacity: usize,
-    map: AHashMap<String, *mut Node>,
-    in_use_head: *mut Node, // Dummy head for in-use list
-    in_use_tail: *mut Node, // Dummy tail for in-use list
-    lru_head: *mut Node,    // Dummy head for LRU list
-    lru_tail: *mut Node,    // Dummy tail for LRU list
+    map: AHashMap<K, *mut Node<K, V>>,
+    in_use_head: *mut Node<K, V>, // Dummy head for in-use list
+    in_use_tail: *mut Node<K, V>, // Dummy tail for in-use list
+    lru_head: *mut Node<K, V>,    // Dummy head for LRU list
+    lru_tail: *mut Node<K, V>,    // Dummy tail for LRU list
 }
 
-impl LRUCacheInner {
+impl<K, V> LRUCacheInner<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
     // Unlink node from its current list
-    unsafe fn unlink_node(&self, node: *mut Node) {
+    unsafe fn unlink_node(&self, node: *mut Node<K, V>) {
         (*(*node).prev).next = (*node).next;
         (*(*node).next).prev = (*node).prev;
         (*node).prev = ptr::null_mut();
@@ -51,7 +68,7 @@ impl LRUCacheInner {
     }
 
     // Add node to in-use list
-    unsafe fn add_to_in_use(&mut self, node: *mut Node) {
+    unsafe fn add_to_in_use(&mut self, node: *mut Node<K, V>) {
         (*node).next = (*self.in_use_head).next;
         (*node).prev = self.in_use_head;
         (*(*self.in_use_head).next).prev = node;
@@ -59,7 +76,7 @@ impl LRUCacheInner {
     }
 
     // Add node to LRU list
-    unsafe fn add_to_lru(&mut self, node: *mut Node) {
+    unsafe fn add_to_lru(&mut self, node: *mut Node<K, V>) {
         (*node).next = (*self.lru_head).next;
         (*node).prev = self.lru_head;
         (*(*self.lru_head).next).prev = node;
@@ -67,7 +84,7 @@ impl LRUCacheInner {
     }
 
     // Move node between lists or within the same list
-    unsafe fn move_node(&mut self, node: *mut Node, to_in_use: bool) {
+    unsafe fn move_node(&mut self, node: *mut Node<K, V>, to_in_use: bool) {
         self.unlink_node(node);
         if to_in_use {
             self.add_to_in_use(node);
@@ -77,7 +94,7 @@ impl LRUCacheInner {
     }
 
     // Remove and deallocate node (only from LRU list)
-    unsafe fn remove_node(&mut self, node: *mut Node) {
+    unsafe fn remove_node(&mut self, node: *mut Node<K, V>) {
         if (*node).ref_count > 0 {
             panic!("Cannot remove node from in-use list");
         }
@@ -86,22 +103,34 @@ impl LRUCacheInner {
     }
 }
 
-pub struct LRUCache {
-    inner: Mutex<LRUCacheInner>,
+pub struct LRUCache<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    inner: Mutex<LRUCacheInner<K, V>>,
 }
 
 #[derive(PartialEq, Debug)]
-struct LruRes {
-    node: *mut Node,
-    lru: *mut LRUCache,
+pub struct LruRes<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    node: *mut Node<K, V>,
+    lru: *mut LRUCache<K, V>,
 }
 
-impl LRUCache {
+impl<K, V> LRUCache<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
     pub fn new(capacity: usize) -> Self {
-        let in_use_head = Node::new(String::new(), String::new(), true);
-        let in_use_tail = Node::new(String::new(), String::new(), true);
-        let lru_head = Node::new(String::new(), String::new(), false);
-        let lru_tail = Node::new(String::new(), String::new(), false);
+        let in_use_head = Node::new(K::default(), V::default());
+        let in_use_tail = Node::new(K::default(), V::default());
+        let lru_head = Node::new(K::default(), V::default());
+        let lru_tail = Node::new(K::default(), V::default());
 
         unsafe {
             (*in_use_head).next = in_use_tail;
@@ -120,7 +149,11 @@ impl LRUCache {
             }),
         }
     }
-    pub fn get(&mut self, key: &str) -> Option<LruRes> {
+    pub fn get<Q>(&mut self, key: &Q) -> Option<LruRes<K, V>>
+    where
+        Q: ?Sized + Hash + Eq,
+        K: Borrow<Q>,
+    {
         let mut cache = self.inner.lock().unwrap();
         let node = { cache.map.get(key) }; // lock_guard 在此离开作用域，锁释放
         if let Some(&node) = node {
@@ -139,7 +172,7 @@ impl LRUCache {
             None
         }
     }
-    pub fn put(&mut self, key: String, value: String) -> Option<LruRes> {
+    pub fn put(&mut self, key: K, value: V) -> Option<LruRes<K, V>> {
         let mut cache = self.inner.lock().unwrap();
         // Check if key exists
         if let Some(&node) = cache.map.get(&key) {
@@ -155,7 +188,7 @@ impl LRUCache {
             });
         }
         // Create new node
-        let node = Node::new(key.clone(), value, true);
+        let node = Node::new(key.clone(), value);
         cache.map.insert(key, node);
         unsafe {
             (*node).ref_count += 1;
@@ -179,7 +212,7 @@ impl LRUCache {
     }
 
     // Move node from in-use to LRU list (simulating release of reference)
-    pub fn release(&mut self, key: &str) {
+    pub fn release(&mut self, key: &K) {
         let mut cache = self.inner.lock().unwrap();
         if let Some(&node) = cache.map.get(key) {
             unsafe {
@@ -192,9 +225,13 @@ impl LRUCache {
     }
 }
 
-impl Drop for LRUCache {
+impl<K, V> Drop for LRUCache<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
     fn drop(&mut self) {
-        let mut cache = self.inner.lock().unwrap();
+        let cache = self.inner.lock().unwrap();
 
         unsafe {
             // Clean up in-use list (nodes are not deallocated per requirement)
@@ -220,17 +257,25 @@ impl Drop for LRUCache {
     }
 }
 
-impl Drop for LruRes {
+impl<K, V> Drop for LruRes<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
     fn drop(&mut self) {
-        let key = unsafe { &(*(*self.node).key) };
+        let key = unsafe { &(*self.node).key };
         unsafe {
             (*(self.lru)).release(key);
         }
     }
 }
 
-impl LruRes {
-    fn value(&self) -> &str {
+impl<K, V> LruRes<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    fn value(&self) -> &V {
         unsafe { &((*(self.node)).value) }
     }
 }
