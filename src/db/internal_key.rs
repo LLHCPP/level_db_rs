@@ -47,7 +47,7 @@ impl InternalKey {
 
 #[cfg(test)]
 mod tests {
-    use crate::db::internal_key::{InternalKey, ParsedInternalKey, ValueType};
+    use crate::db::internal_key::InternalKey;
     use crate::obj::slice::Slice;
     use bytes::BytesMut;
     #[test]

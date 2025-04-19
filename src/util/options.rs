@@ -7,13 +7,12 @@ enum CompressionType {
     KZstdCompression = 0x2,
 }
 
-struct Options<T:Comparator, S:Env> {
-    comparator:T,
+struct Options<T: Comparator, S: Env> {
+    comparator: T,
     create_if_missing: bool,
     error_if_exists: bool,
     paranoid_checks: bool,
-    env:S,
+    env: S,
     write_buffer_size: usize,
     max_open_files: usize,
-    
 }
