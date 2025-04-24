@@ -1,7 +1,6 @@
 pub mod arena;
 mod bloom_filter_policy;
 pub mod bytewise_comparator_impl;
-mod cache;
 pub mod coding;
 pub(crate) mod comparator;
 mod crc32c;
@@ -18,7 +17,7 @@ mod options;
 mod random;
 mod random_access_file;
 mod sequential_file;
-mod test_cache;
+mod cache;
 mod test_util;
 mod thread_pool;
 mod writable_file;

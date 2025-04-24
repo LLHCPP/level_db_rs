@@ -304,3 +304,9 @@ impl hash::LocalHash for Slice {
         hash(self.data(), 0)
     }
 }
+
+impl Default for Slice {
+    fn default() -> Self {
+        Slice::new_from_array(&[])
+    }
+}
