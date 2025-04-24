@@ -12,7 +12,7 @@ use libc::c_int;
 pub const K_OPEN_BASE_FLAGS: c_int = libc::O_CLOEXEC;
 mod env;
 mod filter_policy;
-mod hash;
+pub(crate) mod hash;
 mod histogram;
 mod options;
 mod random;

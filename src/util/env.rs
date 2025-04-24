@@ -179,11 +179,11 @@ fn read_file_to_string<T: Env, P: AsRef<Path>>(
         e
     } else {
         let mut file = file.unwrap();
-        const kBufferSize: usize = 8192;
-        let space = [0; kBufferSize];
+        const K_BUFFER_SIZE: usize = 8192;
+        let space = [0; K_BUFFER_SIZE];
         loop {
-            let s = file.read(kBufferSize);
-            if (!s.is_ok()) {
+            let s = file.read(K_BUFFER_SIZE);
+            if !s.is_ok() {
                 res = s.unwrap_err();
                 break;
             }
@@ -456,8 +456,7 @@ mod tests {
     use crate::util::test_util::{random_seed, random_string};
     use crate::util::writable_file::{StdWritableFile, WritableFile};
     use bytes::{BufMut, BytesMut};
-    use std::cmp::{max, min};
-    use std::slice::from_raw_parts;
+    use std::cmp::min;
     use std::sync::{Arc, Condvar, Mutex};
 
     #[test]
@@ -521,7 +520,7 @@ mod tests {
             }
         }
         let env = get_env::<StdEnv>();
-        let mut state = Arc::new(RunState {
+        let state = Arc::new(RunState {
             called: Mutex::new(false),
             cvar: Condvar::new(),
         });

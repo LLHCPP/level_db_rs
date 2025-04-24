@@ -29,7 +29,7 @@ pub struct ParsedInternalKey {
     pub(crate) value_type: ValueType,
 }
 
-const K_MAX_SEQUENCE_NUMBER: u64 = ((0x1u64 << 56) - 1);
+const K_MAX_SEQUENCE_NUMBER: u64 = (0x1u64 << 56) - 1;
 const K_VALUE_TYPE_FOR_SEEK: ValueType = ValueType::KTypeValue;
 #[inline]
 pub fn extract_user_key(internal_key: &Slice) -> Slice {
@@ -168,7 +168,7 @@ mod tests {
     }
     fn shortsuccessor(s: &BytesMut) -> BytesMut {
         let mut result = s.clone();
-        let mut internal_key_comparator = InternalKeyComparator {
+        let internal_key_comparator = InternalKeyComparator {
             user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
         };
         internal_key_comparator.find_short_successor(&mut result);

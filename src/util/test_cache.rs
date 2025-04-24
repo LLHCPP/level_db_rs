@@ -1,9 +1,11 @@
-use ahash::AHashMap;
+use crate::util::hash::LocalHash;
+use ahash::{AHashMap, AHasher};
 use std::borrow::Borrow;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::ptr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 trait Cache<T, S> {
@@ -127,7 +129,7 @@ where
     K: Hash + Eq + PartialEq + Default + Clone,
     V: Default + Clone,
 {
-    pub fn new(capacity: usize) -> Self {
+    pub fn new(capacity: NonZeroUsize) -> Self {
         let in_use_head = Node::new(K::default(), V::default());
         let in_use_tail = Node::new(K::default(), V::default());
         let lru_head = Node::new(K::default(), V::default());
@@ -141,7 +143,7 @@ where
         }
         LRUCache {
             inner: Mutex::new(LRUCacheInner {
-                capacity,
+                capacity: usize::from(capacity),
                 map: AHashMap::new(),
                 in_use_head,
                 in_use_tail,
@@ -224,6 +226,14 @@ where
             }
         }
     }
+
+    pub fn erase(&mut self, key: &K) {
+        let mut cache = self.inner.lock().unwrap();
+        if let Some(&node) = cache.map.get(&key) {
+            unsafe { cache.remove_node(node) }
+            cache.map.remove(key);
+        }
+    }
 }
 
 impl<K, V> Drop for LRUCache<K, V>
@@ -294,12 +304,21 @@ where
 
 const K_NUM_SHARD_BITS: usize = 4;
 const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
-/*struct ShardedLRUCache<T> {
-    shared: [LRUCache<T>; K_NUM_SHARDS],
+struct ShardedLRUCache<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone,
+    V: Default + Clone,
+{
+    shared: [LRUCache<K, V>; K_NUM_SHARDS],
     last_id_: AtomicU64,
+    hasher: AHasher,
 }
 
-impl<T> ShardedLRUCache<T> {
+impl<K, V> ShardedLRUCache<K, V>
+where
+    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
+    V: Default + Clone,
+{
     fn new(capacity: NonZeroUsize) -> Self {
         let per_shard = (usize::from(capacity) + (K_NUM_SHARDS - 1)) / K_NUM_SHARDS;
         ShardedLRUCache {
@@ -307,31 +326,29 @@ impl<T> ShardedLRUCache<T> {
                 LRUCache::new(NonZeroUsize::try_from(per_shard).unwrap())
             }),
             last_id_: AtomicU64::new(0),
+            hasher: Default::default(),
         }
     }
     fn shard(hash: u32) -> usize {
         (hash >> (32 - K_NUM_SHARD_BITS)) as usize
     }
-    fn hash_slice(s: &Slice) -> u32 {
-        hash(s.data(), 0)
-    }
-    fn insert(&mut self, key: &Slice, value: T) {
-        let hash = Self::hash_slice(key);
+    fn insert(&mut self, key: &K, value: V) -> Option<LruRes<K, V>> {
+        let hash = key.local_hash();
         self.shared[Self::shard(hash)].put(key.clone(), value)
     }
     fn new_id(&self) -> u64 {
-        self.last_id_.fetch_add(1, Ordering::SeqCst);
-        self.last_id_.load(Ordering::SeqCst)
+        self.last_id_.fetch_add(1, Ordering::Relaxed);
+        self.last_id_.load(Ordering::Relaxed)
     }
-    fn get(&mut self, key: &Slice) -> Option<&T> {
-        let hash = Self::hash_slice(key);
+    fn get(&mut self, key: &K) -> Option<LruRes<K, V>> {
+        let hash = key.local_hash();
         self.shared[Self::shard(hash)].get(key)
     }
-    fn erase(&mut self, key: &Slice) {
-        let hash = Self::hash_slice(key);
+    fn erase(&mut self, key: &K) {
+        let hash = key.local_hash();
         self.shared[Self::shard(hash)].erase(key)
     }
-}*/
+}
 
 #[cfg(test)]
 mod tests {
@@ -339,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_lru_cache() {
-        let mut cache = LRUCache::new(2);
+        let mut cache = LRUCache::new(NonZeroUsize::new(2).unwrap());
 
         // Add to in-use
         cache.put("key1".to_string(), "value1".to_string());

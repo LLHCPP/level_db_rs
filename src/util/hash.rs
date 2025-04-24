@@ -1,5 +1,9 @@
 use std::num::Wrapping;
 
+pub(crate) trait LocalHash {
+    fn local_hash(&self) -> u32;
+}
+
 #[inline]
 pub fn hash(data_bytes: &[u8], seed: u32) -> u32 {
     let m: Wrapping<u32> = Wrapping(0xc6a4a793);

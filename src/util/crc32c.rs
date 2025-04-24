@@ -14,7 +14,7 @@ pub fn mask(crc: u32) -> u32 {
 #[inline]
 pub fn unmask(masked_crc: u32) -> u32 {
     let crc = masked_crc - K_MASK_DELTA;
-    ((crc >> 17) | (crc << 15))
+    (crc >> 17) | (crc << 15)
 }
 
 #[cfg(test)]

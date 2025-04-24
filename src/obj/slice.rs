@@ -1,3 +1,4 @@
+use crate::util::hash;
 use bytes::{Buf, Bytes, BytesMut};
 use memmap2::Mmap;
 use std::cmp::{min, Ordering};
@@ -295,5 +296,11 @@ impl From<&BytesMut> for Slice {
         Slice {
             data_bytes: SliceData::Bytes(Bytes::copy_from_slice(&s[..])),
         }
+    }
+}
+
+impl hash::LocalHash for Slice {
+    fn local_hash(&self) -> u32 {
+        hash(self.data(), 0)
     }
 }
