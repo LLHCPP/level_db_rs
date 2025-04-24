@@ -1,4 +1,3 @@
-use crate::obj::slice::Slice;
 use crate::util::hash::LocalHash;
 use ahash::AHashMap;
 use std::borrow::Borrow;
@@ -7,7 +6,8 @@ use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::ptr;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
+use crate::obj::slice::Slice;
 
 trait Cache<T, S> {
     fn new(capacity: NonZeroUsize) -> Self;
@@ -309,7 +309,7 @@ const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
 struct ShardedLRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone
+    V: Default + Clone,
 {
     shared: [LRUCache<K, V>; K_NUM_SHARDS],
     last_id_: AtomicU64,
@@ -318,7 +318,7 @@ where
 impl<K, V> ShardedLRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone
+    V: Default + Clone,
 {
     fn new(capacity: NonZeroUsize) -> Self {
         let per_shard = (usize::from(capacity) + (K_NUM_SHARDS - 1)) / K_NUM_SHARDS;
@@ -340,6 +340,7 @@ where
         self.last_id_.fetch_add(1, Ordering::Relaxed);
         self.last_id_.load(Ordering::Relaxed)
     }
+
     fn get(&mut self, key: &K) -> Option<LruRes<K, V>> {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].get(key)
@@ -357,6 +358,7 @@ const K_CACHE_SIZE: usize = 1000;
 struct CacheTest<T: Clone + Default> {
     cache: ShardedLRUCache<Slice, T>,
 }
+
 #[cfg(test)]
 impl CacheTest<i32> {
     fn new() -> Self {
@@ -372,7 +374,7 @@ impl CacheTest<i32> {
         buffer[3] = (i >> 24) as u8;
         Slice::new_from_array(&buffer)
     }
-/*    fn decode_key(s: &Slice) -> i32 {
+    /*    fn decode_key(s: &Slice) -> i32 {
         let mut buffer: [u8; 4] = [0; 4];
         buffer[0] = s[0];
         buffer[1] = s[1];
@@ -381,12 +383,13 @@ impl CacheTest<i32> {
         i32::from_be_bytes(buffer)
     }
     */
-    fn lookup(&mut self, key: i32) -> Arc<i32> {
+
+    fn lookup(&mut self, key: i32) -> std::sync::Arc<i32> {
         let en_key = Self::encode_key(key);
         if let Some(value) = self.cache.get(&en_key) {
-            Arc::from(*value)
+            std::sync::Arc::from(*value)
         } else {
-            Arc::from(-1)
+            std::sync::Arc::from(-1)
         }
     }
     fn insert(&mut self, key: i32, value: i32) {
