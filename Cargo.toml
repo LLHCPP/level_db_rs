@@ -15,7 +15,7 @@ bumpalo = { version = "3.17.0", features = ["collections", "boxed", "serde"] }
 lru = "0.13.0"
 tracing = "0.1.41"
 crc32c = "0.6.8"
-positioned-io = "0.3.3"
+positioned-io = "0.3.4"
 memmap2 = "0.9.5"
 rustix = { version = "1.0.5", features = ["fs"]}
 libc = "0.2.169"

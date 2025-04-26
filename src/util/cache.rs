@@ -9,13 +9,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use crate::obj::slice::Slice;
 
-trait Cache<T, S> {
+/*trait Cache<T, S> {
     fn new(capacity: NonZeroUsize) -> Self;
     fn get(&mut self, key: &T) -> Option<&T>;
     fn put(&mut self, key: T, value: T);
     fn erase(&mut self, key: &T);
     fn release(&mut self, key: &T);
-}
+}*/
 // Node in either in-use or LRU doubly-linked list
 struct Node<K, V>
 where
@@ -306,9 +306,9 @@ where
 
 const K_NUM_SHARD_BITS: usize = 4;
 const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
-struct ShardedLRUCache<K, V>
+pub(crate) struct ShardedLRUCache<K, V>
 where
-    K: Hash + Eq + PartialEq + Default + Clone,
+    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Default + Clone,
 {
     shared: [LRUCache<K, V>; K_NUM_SHARDS],

@@ -8,14 +8,14 @@ fn encode_fixed32(dst: &mut [u8], value: u32) {
     dst[3] = (value >> 24) as u8;
 }
 
-fn decode_fixed32(src: &[u8]) -> u32 {
+pub(crate) fn decode_fixed32(src: &[u8]) -> u32 {
     ((src[0] as u32) << 0)
         | ((src[1] as u32) << 8)
         | ((src[2] as u32) << 16)
         | ((src[3] as u32) << 24)
 }
 
-fn put_fixed32(dst: &mut BytesMut, value: u32) {
+pub(crate) fn put_fixed32(dst: &mut BytesMut, value: u32) {
     let mut buf: [u8; size_of::<u32>()] = [0; size_of::<u32>()];
     encode_fixed32(&mut buf, value);
     dst.put(&buf[..]);
@@ -98,7 +98,7 @@ fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     pos += 1;
     &mut dst[..pos]
 }
-fn put_varint64(dst: &mut BytesMut, v: u64) {
+pub(crate)  fn put_varint64(dst: &mut BytesMut, v: u64) {
     let mut buf: [u8; 10] = [0; 10];
     let append = encode_varint64(&mut buf, v);
     dst.put_slice(append);
@@ -182,7 +182,7 @@ fn get_varint64ptr<'a>(ptr: &'a [u8], value: &mut u64) -> Option<&'a [u8]> {
     None
 }
 
-fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
+pub(crate) fn get_varint64(input: &mut Slice, value: &mut u64) -> bool {
     let ptr = input.data();
     let limit = input.size();
     if let Some(q) = get_varint64ptr(ptr, value) {
