@@ -1,14 +1,14 @@
 use std::cmp::min;
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range, RangeFrom};
 use std::slice;
 
-struct ByteBuffer {
+#[derive(Debug)]
+pub(crate) struct ByteBuffer {
     ptr: *mut u8, // 指向字节数组的指针
     len: usize,
     cap: usize,
     is_owner: bool,
 }
-
 
 impl ByteBuffer {
     pub fn new(capacity: usize) -> Self {
@@ -43,10 +43,12 @@ impl ByteBuffer {
         assert!(len <= self.cap);
         self.len = len;
     }
-    
-    pub fn init(&mut self, start:usize, end:usize) {
-        for i in start..min(end, self.len)  {
-            unsafe { self.ptr.add(i).write(0); }
+
+    pub fn init(&mut self, start: usize, end: usize) {
+        for i in start..min(end, self.len) {
+            unsafe {
+                self.ptr.add(i).write(0);
+            }
         }
     }
     pub fn as_slice(&self) -> &[u8] {
@@ -68,27 +70,30 @@ impl ByteBuffer {
         self.is_owner
     }
     pub(crate) fn is_empty(&self) -> bool {
-       self.len ==0
+        self.len == 0
     }
 }
 
 impl Clone for ByteBuffer {
     fn clone(&self) -> Self {
         ByteBuffer {
-            ptr:self.ptr,
+            ptr: self.ptr,
             len: self.len,
             cap: self.cap,
             is_owner: false,
         }
     }
- }
+}
 // 实现 Index trait 以支持只读索引
 impl Index<usize> for ByteBuffer {
     type Output = u8;
 
     fn index(&self, index: usize) -> &Self::Output {
         if index >= self.len {
-            panic!("index out of bounds: the len is {} but the index is {}", self.len, index);
+            panic!(
+                "index out of bounds: the len is {} but the index is {}",
+                self.len, index
+            );
         }
         unsafe { &*self.ptr.add(index) }
     }
@@ -98,9 +103,48 @@ impl Index<usize> for ByteBuffer {
 impl IndexMut<usize> for ByteBuffer {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         if index >= self.len {
-            panic!("index out of bounds: the len is {} but the index is {}", self.len, index);
+            panic!(
+                "index out of bounds: the len is {} but the index is {}",
+                self.len, index
+            );
         }
         unsafe { &mut *self.ptr.add(index) }
+    }
+}
+
+impl Index<Range<usize>> for ByteBuffer {
+    type Output = [u8];
+
+    fn index(&self, range: Range<usize>) -> &Self::Output {
+        assert!(range.start < range.end);
+        assert!(range.end <= self.len);
+        unsafe { slice::from_raw_parts(self.ptr.add(range.start), range.end - range.start) }
+    }
+}
+
+// 实现 IndexMut trait 以支持范围可写索引
+impl IndexMut<Range<usize>> for ByteBuffer {
+    fn index_mut(&mut self, range: Range<usize>) -> &mut Self::Output {
+        assert!(range.start < range.end);
+        assert!(range.end <= self.len);
+        unsafe { slice::from_raw_parts_mut(self.ptr.add(range.start), range.end - range.start) }
+    }
+}
+
+impl Index<RangeFrom<usize>> for ByteBuffer {
+    type Output = [u8];
+
+    fn index(&self, range: RangeFrom<usize>) -> &Self::Output {
+        assert!(range.start < self.len);
+        unsafe { slice::from_raw_parts(self.ptr.add(range.start), self.len() - range.start) }
+    }
+}
+
+// 实现 IndexMut trait 以支持范围可写索引
+impl IndexMut<RangeFrom<usize>> for ByteBuffer {
+    fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut Self::Output {
+        assert!(range.start < self.len);
+        unsafe { slice::from_raw_parts_mut(self.ptr.add(range.start), self.len() - range.start) }
     }
 }
 
@@ -143,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_byte_buffer_from_vec() {
-        let data:Vec<u8> = vec![1, 2, 3, 4, 5];
+        let data: Vec<u8> = vec![1, 2, 3, 4, 5];
         let buffer = ByteBuffer::from_vec(&data);
         let buffer_slice: &[u8] = buffer.as_slice();
         let data_slice: &[u8] = data.as_slice();
@@ -154,7 +198,7 @@ mod tests {
     #[test]
     fn test_empty_buffer() {
         let buffer = ByteBuffer::new(0);
-        assert_eq!(buffer.as_slice(), &[]);
+        assert_eq!(buffer.as_slice(), &[0; 0]);
         assert_eq!(buffer.len(), 0);
         assert!(buffer.is_empty());
     }

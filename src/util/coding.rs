@@ -98,7 +98,7 @@ fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     pos += 1;
     &mut dst[..pos]
 }
-pub(crate)  fn put_varint64(dst: &mut BytesMut, v: u64) {
+pub(crate) fn put_varint64(dst: &mut BytesMut, v: u64) {
     let mut buf: [u8; 10] = [0; 10];
     let append = encode_varint64(&mut buf, v);
     dst.put_slice(append);

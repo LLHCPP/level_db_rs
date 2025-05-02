@@ -9,6 +9,7 @@ use libc::c_int;
 /// Base flags for opening files on Unix systems, enabling close-on-exec behavior.
 #[cfg(unix)]
 pub const K_OPEN_BASE_FLAGS: c_int = libc::O_CLOEXEC;
+pub(crate) mod cache;
 pub(crate) mod env;
 pub(crate) mod filter_policy;
 pub(crate) mod hash;
@@ -17,7 +18,6 @@ mod options;
 mod random;
 pub(crate) mod random_access_file;
 mod sequential_file;
-pub(crate) mod cache;
 mod test_util;
 mod thread_pool;
 mod writable_file;

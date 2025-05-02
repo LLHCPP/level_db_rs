@@ -1,3 +1,4 @@
+use crate::obj::slice::Slice;
 use crate::util::hash::LocalHash;
 use ahash::AHashMap;
 use std::borrow::Borrow;
@@ -7,7 +8,6 @@ use std::ops::Deref;
 use std::ptr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use crate::obj::slice::Slice;
 
 /*trait Cache<T, S> {
     fn new(capacity: NonZeroUsize) -> Self;

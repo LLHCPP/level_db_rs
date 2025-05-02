@@ -1,8 +1,9 @@
+use crate::obj::byte_buffer::ByteBuffer;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::util::coding::{decode_fixed32, get_varint64, put_fixed32, put_varint64};
-use bytes::BytesMut;
 use crate::util::random_access_file::RandomAccessFile;
+use bytes::BytesMut;
 
 const K_MAX_ENCODED_LENGTH: u64 = 10 + 10;
 #[derive(Debug, Clone)]
@@ -102,8 +103,8 @@ impl Footer {
 }
 
 #[derive(Debug, Clone)]
-struct BlockContents{
-    data: Slice,
+pub(crate) struct BlockContents {
+    pub(crate) data: ByteBuffer,
     cachable: bool,
     heap_allocated: bool,
 }
