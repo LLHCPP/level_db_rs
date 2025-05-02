@@ -5,6 +5,7 @@ use std::slice;
 #[derive(Debug)]
 pub(crate) struct ByteBuffer {
     ptr: *mut u8, // 指向字节数组的指针
+    offset: usize,
     len: usize,
     cap: usize,
     is_owner: bool,
@@ -15,6 +16,7 @@ impl ByteBuffer {
         let ptr = unsafe { libc::malloc(capacity) as *mut u8 };
         ByteBuffer {
             ptr,
+            offset: 0,
             len: 0,
             cap: capacity,
             is_owner: true,
@@ -24,6 +26,7 @@ impl ByteBuffer {
         let ptr = slice.as_ptr() as *mut u8;
         ByteBuffer {
             ptr,
+            offset: 0,
             len: slice.len(),
             cap: slice.len(),
             is_owner: false,
@@ -34,28 +37,29 @@ impl ByteBuffer {
         let ptr = vec.as_ptr() as *mut u8;
         ByteBuffer {
             ptr,
+            offset: 0,
             len: vec.len(),
             cap: vec.len(),
             is_owner: false,
         }
     }
     pub fn resize(&mut self, len: usize) {
-        assert!(len <= self.cap);
+        assert!(len <= self.cap());
         self.len = len;
     }
 
     pub fn init(&mut self, start: usize, end: usize) {
         for i in start..min(end, self.len) {
             unsafe {
-                self.ptr.add(i).write(0);
+                self.ptr.add(i + self.offset).write(0);
             }
         }
     }
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        unsafe { &slice::from_raw_parts(self.ptr, self.len + self.offset)[self.offset..] }
     }
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
+        unsafe { &mut slice::from_raw_parts_mut(self.ptr, self.len + self.offset)[self.offset..] }
     }
 
     pub fn len(&self) -> usize {
@@ -63,7 +67,7 @@ impl ByteBuffer {
     }
 
     pub fn cap(&self) -> usize {
-        self.cap
+        self.cap - self.offset
     }
 
     pub fn is_owner(&self) -> bool {
@@ -72,12 +76,20 @@ impl ByteBuffer {
     pub(crate) fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    pub fn advance(&mut self, n: usize) -> &Self {
+        debug_assert!(n <= self.len);
+        self.offset += n;
+        self.len -= n;
+        self
+    }
 }
 
 impl Clone for ByteBuffer {
     fn clone(&self) -> Self {
         ByteBuffer {
             ptr: self.ptr,
+            offset: self.offset,
             len: self.len,
             cap: self.cap,
             is_owner: false,
@@ -95,7 +107,7 @@ impl Index<usize> for ByteBuffer {
                 self.len, index
             );
         }
-        unsafe { &*self.ptr.add(index) }
+        unsafe { &*self.ptr.add(index + self.offset) }
     }
 }
 
@@ -108,7 +120,7 @@ impl IndexMut<usize> for ByteBuffer {
                 self.len, index
             );
         }
-        unsafe { &mut *self.ptr.add(index) }
+        unsafe { &mut *self.ptr.add(index + self.offset) }
     }
 }
 
@@ -118,7 +130,12 @@ impl Index<Range<usize>> for ByteBuffer {
     fn index(&self, range: Range<usize>) -> &Self::Output {
         assert!(range.start < range.end);
         assert!(range.end <= self.len);
-        unsafe { slice::from_raw_parts(self.ptr.add(range.start), range.end - range.start) }
+        unsafe {
+            &slice::from_raw_parts(
+                self.ptr.add(range.start),
+                range.end - range.start + self.offset,
+            )[self.offset..]
+        }
     }
 }
 
@@ -127,7 +144,12 @@ impl IndexMut<Range<usize>> for ByteBuffer {
     fn index_mut(&mut self, range: Range<usize>) -> &mut Self::Output {
         assert!(range.start < range.end);
         assert!(range.end <= self.len);
-        unsafe { slice::from_raw_parts_mut(self.ptr.add(range.start), range.end - range.start) }
+        unsafe {
+            &mut slice::from_raw_parts_mut(
+                self.ptr.add(range.start),
+                range.end - range.start + self.offset,
+            )[self.offset..]
+        }
     }
 }
 
@@ -136,7 +158,12 @@ impl Index<RangeFrom<usize>> for ByteBuffer {
 
     fn index(&self, range: RangeFrom<usize>) -> &Self::Output {
         assert!(range.start < self.len);
-        unsafe { slice::from_raw_parts(self.ptr.add(range.start), self.len() - range.start) }
+        unsafe {
+            slice::from_raw_parts(
+                self.ptr.add(range.start + self.offset),
+                self.len() - range.start,
+            )
+        }
     }
 }
 
@@ -144,7 +171,12 @@ impl Index<RangeFrom<usize>> for ByteBuffer {
 impl IndexMut<RangeFrom<usize>> for ByteBuffer {
     fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut Self::Output {
         assert!(range.start < self.len);
-        unsafe { slice::from_raw_parts_mut(self.ptr.add(range.start), self.len() - range.start) }
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.ptr.add(range.start + self.offset),
+                self.len() - range.start,
+            )
+        }
     }
 }
 

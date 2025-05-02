@@ -1,3 +1,4 @@
+use crate::obj::byte_buffer::ByteBuffer;
 use crate::util::hash;
 use bytes::{Buf, Bytes, BytesMut};
 use memmap2::Mmap;
@@ -25,6 +26,7 @@ enum SliceData {
     Bytes(Bytes),            // 包含 Bytes 数据
     BytesMut(BytesMutSlice), // 包含 BytesMut 数据
     MMap(MMapSlice),
+    PtrBuffer(ByteBuffer),
 }
 
 impl SliceData {
@@ -55,6 +57,10 @@ impl SliceData {
         })
     }
 
+    pub fn from_buffer_byte(buffer: ByteBuffer) -> SliceData {
+        SliceData::PtrBuffer(buffer)
+    }
+
     pub(crate) fn slice(&self, range: Range<usize>) -> SliceData {
         let (start, end) = match range {
             Range { start, end } => (start, end),
@@ -77,6 +83,10 @@ impl SliceData {
                     len: new_len,
                 })
             }
+            SliceData::PtrBuffer(p) => {
+                let new_len = min(end - start, p.len());
+                SliceData::PtrBuffer(ByteBuffer::from_slice(&p.as_slice()[start..new_len]))
+            }
         }
     }
     pub fn as_ref(&self) -> &[u8] {
@@ -92,6 +102,7 @@ impl SliceData {
                 let end = min(mm.offset + mm.len, mm.mmap.len());
                 &mut_bytes[mm.offset..end]
             }
+            SliceData::PtrBuffer(p) => p.as_slice(),
         }
     }
 
@@ -100,6 +111,7 @@ impl SliceData {
             SliceData::Bytes(b) => b.len(),
             SliceData::BytesMut(bm) => bm.len,
             SliceData::MMap(mm) => mm.len,
+            SliceData::PtrBuffer(p) => p.len(),
         }
     }
 
@@ -118,6 +130,10 @@ impl SliceData {
                 debug_assert!(n <= mm.len);
                 mm.offset += n;
                 mm.len -= n;
+            }
+            SliceData::PtrBuffer(p) => {
+                debug_assert!(n <= p.len());
+                p.advance(n);
             }
         }
     }
@@ -179,57 +195,105 @@ impl Hash for SliceData {
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct Slice {
     pub(crate) data_bytes: SliceData,
+    len: usize,
+    cap: usize,
 }
 
 impl Slice {
     pub(crate) fn new_from_slice(p0: &Slice, p1: Range<usize>) -> Slice {
+        let data = p0.data_bytes.slice(p1);
+        let len = data.len();
         Slice {
-            data_bytes: p0.data_bytes.slice(p1),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     // 构造函数
     pub(crate) fn new(data: Bytes) -> Self {
+        let data = SliceData::from_bytes(&data);
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::from_bytes(&data),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_mut(data: &BytesMut) -> Self {
+        let data = SliceData::from_bytes_mut(data);
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::from_bytes_mut(data),
+            data_bytes: data,
+            len,
+            cap: len,
+        }
+    }
+
+    pub(crate) fn new_from_buff(data: ByteBuffer) -> Self {
+        let data = SliceData::from_buffer_byte(data);
+        let len = data.len();
+        Slice {
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
 
     pub fn data(&self) -> &[u8] {
-        self.data_bytes.as_ref()
+        &self.data_bytes.as_ref()[..self.len()]
     }
     pub(crate) fn new_from_vec(data: Vec<u8>) -> Self {
+        let data = SliceData::new_bytes(Bytes::from(data));
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::new_bytes(Bytes::from(data)),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_array(data: &[u8]) -> Self {
+        let data = SliceData::new_bytes(Bytes::copy_from_slice(data));
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::new_bytes(Bytes::copy_from_slice(data)),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_string(data: String) -> Self {
+        let data = SliceData::new_bytes(Bytes::from(data.into_bytes()));
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::new_bytes(Bytes::from(data.into_bytes())),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_static(data: &'static str) -> Self {
+        let data = SliceData::new_bytes(Bytes::from(data));
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::new_bytes(Bytes::from(data)),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_str(data: &str) -> Self {
+        let data = SliceData::new_bytes(Bytes::copy_from_slice(data.as_bytes()));
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::new_bytes(Bytes::copy_from_slice(data.as_bytes())),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub(crate) fn new_from_mmap(data: Arc<Mmap>, offset: usize, len: usize) -> Self {
+        let data = SliceData::from_arc_mmap(data, offset, len);
+        let len = data.len();
         Slice {
-            data_bytes: SliceData::from_arc_mmap(data, offset, len),
+            data_bytes: data,
+            len,
+            cap: len,
         }
     }
     pub fn size(&self) -> usize {
@@ -237,17 +301,19 @@ impl Slice {
     }
     // 获取引用的长度
     pub fn len(&self) -> usize {
-        self.data_bytes.len()
+        self.len
     }
     pub(crate) fn remove_prefix(&mut self, n: usize) {
         if n > self.len() {
             panic!("remove_prefix: n is out of range")
         }
-        self.data_bytes.advance(n);
+        self.advance(n);
     }
 
     pub(crate) fn advance(&mut self, n: usize) {
+        assert!(n <= self.len());
         self.remove_prefix(n);
+        self.len -= n;
     }
 
     pub fn to_string(&self) -> String {
@@ -255,16 +321,23 @@ impl Slice {
     }
 
     pub(crate) fn compare(&self, x: &Slice) -> Ordering {
-        self.data_bytes.cmp(&x.data_bytes)
+        self.data().cmp(x.data())
     }
 
     fn starts_with(&self, x: &Slice) -> bool {
-        self.data_bytes.len() >= x.data_bytes.len()
-            && self.data_bytes[..x.data_bytes.len()] == x.data_bytes[..]
+        self.len() >= x.len() && self.data()[..x.data_bytes.len()] == x.data()[..]
     }
     pub fn slice(&self, n: usize) -> Slice {
-        let data_bytes = self.data_bytes.slice(0..min(n, self.len()));
-        Slice { data_bytes }
+        let data_bytes = self.data_bytes.clone();
+        Slice {
+            data_bytes,
+            len: min(n, self.len()),
+            cap: self.len(),
+        }
+    }
+
+    pub fn resize(&mut self, n: usize) {
+        self.len = n;
     }
 
     // 打印内容
@@ -295,6 +368,8 @@ impl From<&BytesMut> for Slice {
     fn from(s: &BytesMut) -> Self {
         Slice {
             data_bytes: SliceData::Bytes(Bytes::copy_from_slice(&s[..])),
+            len: s.len(),
+            cap: s.len(),
         }
     }
 }

@@ -1,6 +1,10 @@
 use crate::obj::byte_buffer::ByteBuffer;
+use crate::obj::slice::Slice;
+use crate::obj::status_rs::Status;
 use crate::table::format::BlockContents;
 use crate::util::coding::{decode_fixed32, get_varint32ptr};
+use crate::util::comparator::Comparator;
+use std::cmp::Ordering;
 
 struct Block {
     data: ByteBuffer,
@@ -68,4 +72,63 @@ pub fn decode_entry<'a>(
         return None;
     }
     Some(input)
+}
+
+struct BlockIterator<C>
+where
+    C: Comparator,
+{
+    comparator_: C,
+    data_: ByteBuffer,
+    restarts_: u32,
+    num_restarts_: u32,
+    current_: u32,
+    restart_index_: u32,
+    key_: String,
+    value_: Slice,
+    status: Status,
+}
+
+impl<C> BlockIterator<C>
+where
+    C: Comparator,
+{
+    fn new(comparator: C, data: ByteBuffer, restarts: u32, num_restarts: u32) -> Self {
+        BlockIterator {
+            comparator_: comparator,
+            data_: data,
+            restarts_: restarts,
+            num_restarts_: num_restarts,
+            current_: restarts,
+            restart_index_: num_restarts,
+            key_: String::new(),
+            value_: Slice::new_from_str(""),
+            status: Status::ok(),
+        }
+    }
+    fn compare(&self, a: &Slice, b: &Slice) -> Ordering {
+        self.comparator_.compare(a, b)
+    }
+
+    fn next_entry_offset(&self) -> u32 {
+        (self.value_.data().as_ptr() as u64 + self.value_.size() as u64
+            - self.data_.as_slice().as_ptr() as u64) as u32
+    }
+
+    fn get_restart_point(&self, index: u32) -> u32 {
+        assert!(index < self.num_restarts_);
+        decode_fixed32(
+            &self.data_.as_slice()[(self.restarts_ + index * size_of::<u32>() as u32) as usize..],
+        )
+    }
+
+    fn seek_to_restart_point(&mut self, index: u32) {
+        self.key_.clear();
+        self.restart_index_ = index;
+        let offset = self.get_restart_point(index);
+        let mut new_value = self.data_.clone();
+        new_value.advance(offset as usize);
+        self.value_ = Slice::new_from_buff(new_value);
+        self.value_.resize(0);
+    }
 }
