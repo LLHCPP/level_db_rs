@@ -2,7 +2,7 @@ use crate::obj::byte_buffer::ByteBuffer;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::format::BlockContents;
-use crate::table::Iterator::Iter;
+use crate::table::iterator::Iter;
 use crate::util::coding::{decode_fixed32, get_varint32ptr};
 use crate::util::comparator::Comparator;
 use std::cmp::Ordering;

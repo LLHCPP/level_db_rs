@@ -11,7 +11,7 @@ enum CompressionType {
     Zstd,
 }
 
-struct Options<C, E, K, V, F>
+pub struct Options<C, E, K, V, F>
 where
     C: Comparator,
     E: Env,
@@ -19,7 +19,7 @@ where
     V: Default + Clone,
     F: FilterPolicy,
 {
-    comparator: C,
+    pub(crate) comparator: C,
     create_if_missing: bool,
     error_if_exists: bool,
     paranoid_checks: bool,
@@ -28,7 +28,7 @@ where
     max_open_files: u64,
     block_cache: ShardedLRUCache<K, V>,
     block_size: usize,
-    block_restart_interval: u32,
+    pub(crate) block_restart_interval: u32,
     max_file_size: usize,
     compression: CompressionType,
     zstd_compression_level: u32,

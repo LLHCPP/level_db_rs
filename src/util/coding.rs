@@ -79,7 +79,7 @@ fn encode_varint32(dst: &mut [u8], v: u32) -> &[u8] {
     &dst[..num_bytes]
 }
 
-fn put_varint32(dst: &mut BytesMut, v: u32) {
+pub(crate) fn put_varint32(dst: &mut BytesMut, v: u32) {
     let mut buf: [u8; 5] = [0; 5];
     let append = encode_varint32(&mut buf, v);
     dst.put_slice(append);
