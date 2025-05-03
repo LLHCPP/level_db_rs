@@ -239,6 +239,11 @@ impl Slice {
         }
     }
 
+    pub(crate) fn new_from_string_buffer(str: &String) -> Self {
+        let buffer_data = ByteBuffer::from_string(str);
+        Self::new_from_buff(buffer_data)
+    }
+
     pub fn data(&self) -> &[u8] {
         &self.data_bytes.as_ref()[..self.len()]
     }

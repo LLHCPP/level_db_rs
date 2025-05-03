@@ -1,13 +1,13 @@
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 
-pub trait Iterator {
-    fn valid() -> bool;
-    fn seek_to_first();
-    fn seek_to_last();
-    fn seek(target: &Slice);
-    fn next();
-    fn prev();
+pub trait Iter {
+    fn valid(&self) -> bool;
+    fn seek_to_first(&self);
+    fn seek_to_last(&self);
+    fn seek(&self, target: &Slice);
+    fn next(&self);
+    fn prev(&self);
     fn key(&self) -> Slice;
     fn value(&self) -> Slice;
     fn status(&self) -> Status;
@@ -17,17 +17,17 @@ struct EmptyIterator {
     status: Status,
 }
 
-impl Iterator for EmptyIterator {
-    fn valid() -> bool {
+impl Iter for EmptyIterator {
+    fn valid(&self) -> bool {
         false
     }
-    fn seek_to_first() {}
-    fn seek_to_last() {}
-    fn seek(target: &Slice) {}
+    fn seek_to_first(&self) {}
+    fn seek_to_last(&self) {}
+    fn seek(&self,target: &Slice) {}
 
-    fn next() {}
+    fn next(&self) {}
 
-    fn prev() {}
+    fn prev(&self) {}
 
     fn key(&self) -> Slice {
         Slice::new_from_str("")

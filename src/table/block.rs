@@ -5,6 +5,7 @@ use crate::table::format::BlockContents;
 use crate::util::coding::{decode_fixed32, get_varint32ptr};
 use crate::util::comparator::Comparator;
 use std::cmp::Ordering;
+use crate::table::Iterator::Iter;
 
 struct Block {
     data: ByteBuffer,
@@ -130,5 +131,45 @@ where
         new_value.advance(offset as usize);
         self.value_ = Slice::new_from_buff(new_value);
         self.value_.resize(0);
+    }
+}
+impl<C> Iter for BlockIterator<C> 
+where
+    C: Comparator {
+    fn valid(&self) -> bool {
+        self.current_ < self.restarts_
+    }
+
+    fn seek_to_first(&self) {
+        todo!()
+    }
+
+    fn seek_to_last(&self) {
+        todo!()
+    }
+
+    fn seek(&self, target: &Slice) {
+        todo!()
+    }
+
+    fn next(&self) {
+        todo!()
+    }
+
+    fn prev(&self) {
+        todo!()
+    }
+
+    fn key(&self) -> Slice {
+       assert!(self.valid());
+        Slice::new_from_string_buffer(&self.key_)
+    }
+
+    fn value(&self) -> Slice {
+        todo!()
+    }
+
+    fn status(&self) -> Status {
+        self.status.clone()
     }
 }

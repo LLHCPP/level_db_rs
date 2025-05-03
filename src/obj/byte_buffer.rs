@@ -1,3 +1,4 @@
+use std::alloc::{alloc, dealloc, Layout};
 use std::cmp::min;
 use std::ops::{Index, IndexMut, Range, RangeFrom};
 use std::slice;
@@ -9,17 +10,23 @@ pub(crate) struct ByteBuffer {
     len: usize,
     cap: usize,
     is_owner: bool,
+    layout:Option<Layout>
 }
 
 impl ByteBuffer {
     pub fn new(capacity: usize) -> Self {
-        let ptr = unsafe { libc::malloc(capacity) as *mut u8 };
+        let layout = Layout::from_size_align(capacity, align_of::<u8>()).unwrap();
+        let ptr = unsafe { alloc(layout) };
+        if ptr.is_null() {
+            panic!("Memory allocation failed");
+        }
         ByteBuffer {
             ptr,
             offset: 0,
             len: 0,
             cap: capacity,
             is_owner: true,
+            layout:Some(layout)
         }
     }
     pub fn from_slice(slice: &[u8]) -> Self {
@@ -30,6 +37,19 @@ impl ByteBuffer {
             len: slice.len(),
             cap: slice.len(),
             is_owner: false,
+            layout: None,
+        }
+    }
+
+    pub fn from_string(str: &String) -> Self {
+        let ptr = str.as_ptr() as *mut u8;
+        ByteBuffer {
+            ptr,
+            offset: 0,
+            len: str.len(),
+            cap: str.len(),
+            is_owner: false,
+            layout: None,
         }
     }
 
@@ -41,6 +61,7 @@ impl ByteBuffer {
             len: vec.len(),
             cap: vec.len(),
             is_owner: false,
+            layout: None,
         }
     }
     pub fn resize(&mut self, len: usize) {
@@ -93,6 +114,7 @@ impl Clone for ByteBuffer {
             len: self.len,
             cap: self.cap,
             is_owner: false,
+            layout: self.layout.clone(),
         }
     }
 }
@@ -184,7 +206,7 @@ impl Drop for ByteBuffer {
     fn drop(&mut self) {
         if self.is_owner {
             unsafe {
-                libc::free(self.ptr as *mut libc::c_void);
+                dealloc(self.ptr, self.layout.unwrap());
             }
         }
     }
