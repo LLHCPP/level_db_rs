@@ -3,11 +3,11 @@ use crate::obj::status_rs::Status;
 
 pub trait Iter {
     fn valid(&self) -> bool;
-    fn seek_to_first(&self);
-    fn seek_to_last(&self);
-    fn seek(&self, target: &Slice);
-    fn next(&self);
-    fn prev(&self);
+    fn seek_to_first(&mut self);
+    fn seek_to_last(&mut self);
+    fn seek(&mut self, target: &Slice);
+    fn next(&mut self);
+    fn prev(&mut self);
     fn key(&self) -> Slice;
     fn value(&self) -> Slice;
     fn status(&self) -> Status;
@@ -21,13 +21,13 @@ impl Iter for EmptyIterator {
     fn valid(&self) -> bool {
         false
     }
-    fn seek_to_first(&self) {}
-    fn seek_to_last(&self) {}
-    fn seek(&self,target: &Slice) {}
+    fn seek_to_first(&mut self) {}
+    fn seek_to_last(&mut self) {}
+    fn seek(&mut self, target: &Slice) {}
 
-    fn next(&self) {}
+    fn next(&mut self) {}
 
-    fn prev(&self) {}
+    fn prev(&mut self) {}
 
     fn key(&self) -> Slice {
         Slice::new_from_str("")

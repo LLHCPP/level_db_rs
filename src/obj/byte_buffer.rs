@@ -10,7 +10,7 @@ pub(crate) struct ByteBuffer {
     len: usize,
     cap: usize,
     is_owner: bool,
-    layout:Option<Layout>
+    layout: Option<Layout>,
 }
 
 impl ByteBuffer {
@@ -26,7 +26,7 @@ impl ByteBuffer {
             len: 0,
             cap: capacity,
             is_owner: true,
-            layout:Some(layout)
+            layout: Some(layout),
         }
     }
     pub fn from_slice(slice: &[u8]) -> Self {
@@ -48,6 +48,18 @@ impl ByteBuffer {
             offset: 0,
             len: str.len(),
             cap: str.len(),
+            is_owner: false,
+            layout: None,
+        }
+    }
+
+    pub fn from_ptr(data: &[u8]) -> Self {
+        let ptr = data.as_ptr() as *mut u8;
+        ByteBuffer {
+            ptr,
+            offset: 0,
+            len: data.len(),
+            cap: data.len(),
             is_owner: false,
             layout: None,
         }
@@ -103,6 +115,19 @@ impl ByteBuffer {
         self.offset += n;
         self.len -= n;
         self
+    }
+
+    pub fn clear(&mut self) {
+        if self.is_owner {
+            unsafe {
+                dealloc(self.ptr, self.layout.unwrap());
+            }
+        }
+        self.ptr = std::ptr::null_mut();
+        self.offset = 0;
+        self.len = 0;
+        self.cap = 0;
+        self.is_owner = false;
     }
 }
 

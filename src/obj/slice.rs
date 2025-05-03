@@ -137,6 +137,21 @@ impl SliceData {
             }
         }
     }
+
+    pub(crate) fn clear(&mut self) {
+        match self {
+            SliceData::Bytes(b) => b.clear(),
+            SliceData::BytesMut(bm) => {
+                bm.offset = 0;
+                bm.len = 0;
+            }
+            SliceData::MMap(mm) => {
+                mm.offset = 0;
+                mm.len = 0;
+            }
+            SliceData::PtrBuffer(p) => p.clear(),
+        }
+    }
 }
 
 impl Index<usize> for SliceData {
@@ -244,6 +259,11 @@ impl Slice {
         Self::new_from_buff(buffer_data)
     }
 
+    pub(crate) fn new_from_ptr(data: &[u8]) -> Self {
+        let buffer_data = ByteBuffer::from_ptr(data);
+        Self::new_from_buff(buffer_data)
+    }
+
     pub fn data(&self) -> &[u8] {
         &self.data_bytes.as_ref()[..self.len()]
     }
@@ -343,6 +363,11 @@ impl Slice {
 
     pub fn resize(&mut self, n: usize) {
         self.len = n;
+    }
+    pub fn clear(&mut self) {
+        self.len = 0;
+        self.cap = 0;
+        self.data_bytes.clear();
     }
 
     // 打印内容
