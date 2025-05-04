@@ -1,7 +1,7 @@
 use crate::obj::slice::Slice;
 use crate::util::filter_policy::FilterPolicy;
 use crate::util::hash;
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use std::num::Wrapping;
 
 struct BloomFilterPolicy {
@@ -32,7 +32,7 @@ impl FilterPolicy for BloomFilterPolicy {
         "leveldb.BuiltinBloomFilter2"
     }
 
-    fn create_filter(&self, keys: &[Slice], dst: &mut Bytes) {
+    fn create_filter(&self, keys: &[Slice], dst: &mut BytesMut) {
         let mut bits = keys.len() * self.bits_per_key;
         if bits < 64 {
             bits = 64;
@@ -40,10 +40,9 @@ impl FilterPolicy for BloomFilterPolicy {
         let bytes = (bits + 7) / 8;
         bits = bytes * 8;
         let init_size = dst.len();
-        let mut vec = dst.to_vec();
-        vec.resize(init_size + bytes, 0);
-        vec.push(self.k);
-        let array = &mut vec[init_size..];
+        dst.resize(init_size + bytes, 0);
+        dst.put_u8(self.k);
+        let array = &mut dst[init_size..];
         for key in keys.iter() {
             let mut h = Wrapping(BloomFilterPolicy::bloom_hash(&key));
             let delta = (h >> 17) | (h << 15);
@@ -53,15 +52,14 @@ impl FilterPolicy for BloomFilterPolicy {
                 h += delta;
             }
         }
-        *dst = Bytes::from(vec);
     }
 
-    fn key_may_match(&self, key: &Slice, bloom_filter: &Bytes) -> bool {
+    fn key_may_match(&self, key: &Slice, bloom_filter: &Slice) -> bool {
         let len = bloom_filter.len();
         if len < 2 {
             return false;
         }
-        let array = &bloom_filter.to_vec();
+        let array = bloom_filter.data();
         let bits = (len - 1) * 8;
         let k = array[len - 1];
         if k > 30 {
@@ -82,7 +80,7 @@ impl FilterPolicy for BloomFilterPolicy {
 #[cfg(test)]
 struct BloomTest {
     policy: BloomFilterPolicy,
-    filter: Bytes,
+    filter: BytesMut,
     keys: Vec<Slice>,
 }
 
@@ -98,7 +96,7 @@ impl BloomTest {
     fn new(bits_per_key: usize) -> Self {
         Self {
             policy: BloomFilterPolicy::new(bits_per_key),
-            filter: Bytes::new(),
+            filter: BytesMut::new(),
             keys: Vec::new(),
         }
     }
@@ -122,7 +120,8 @@ impl BloomTest {
         if !self.keys.is_empty() {
             self.build();
         }
-        self.policy.key_may_match(s, &self.filter)
+        self.policy
+            .key_may_match(s, &Slice::new_from_mut(&self.filter))
     }
     fn false_positive_rate(&mut self) -> f64 {
         let mut buffer: [u8; 4] = [0; 4];
