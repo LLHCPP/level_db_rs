@@ -134,6 +134,6 @@ where
                 return false;
             }
         }
-        return true;
+        true
     }
 }
