@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 
-pub(crate) trait LocalHash {
+pub trait LocalHash {
     fn local_hash(&self) -> u32;
 }
 

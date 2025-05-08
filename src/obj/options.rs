@@ -4,6 +4,7 @@ use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
 use crate::util::hash::LocalHash;
 use std::hash::Hash;
+use std::sync::Arc;
 
 enum CompressionType {
     None,
@@ -16,14 +17,14 @@ where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
+    V: Clone,
     F: FilterPolicy,
 {
     pub(crate) comparator: C,
     create_if_missing: bool,
     error_if_exists: bool,
     paranoid_checks: bool,
-    env: E,
+    pub(crate) env: Arc<E>,
     write_buffer_size: usize,
     max_open_files: u64,
     block_cache: ShardedLRUCache<K, V>,

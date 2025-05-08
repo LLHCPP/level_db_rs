@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use bytes::BytesMut;
@@ -12,13 +13,14 @@ use {crate::util::K_OPEN_BASE_FLAGS, std::os::unix::fs::OpenOptionsExt};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
-pub trait RandomAccessFile: Send + Sync {
+pub trait RandomAccessFile: Send + Sync + Debug  {
     fn new<P: AsRef<std::path::Path>>(filename: P, limiter: Arc<Limiter>) -> io::Result<Self>
     where
         Self: Sized;
     fn read(&mut self, offset: u64, n: usize) -> Result<Slice, Status>;
 }
 
+#[derive(Debug, Default)]
 pub struct Limiter {
     #[cfg(debug_assertions)]
     max_acquires: i64,
@@ -69,6 +71,7 @@ impl Limiter {
     }
 }
 
+#[derive(Debug, Default)]
 pub(crate) struct StdRandomAccessFile {
     limiter: Arc<Limiter>,
     has_permanent_fd_: bool,
@@ -88,7 +91,7 @@ impl RandomAccessFile for StdRandomAccessFile {
     fn new<P: AsRef<std::path::Path>>(
         filename: P,
         limiter: Arc<Limiter>,
-    ) -> Result<StdRandomAccessFile, std::io::Error> {
+    ) -> Result<StdRandomAccessFile, io::Error> {
         if limiter.acquire() {
             let file = match positioned_io::RandomAccessFile::open(filename.as_ref()) {
                 Ok(file) => Some(file),
@@ -140,6 +143,7 @@ impl RandomAccessFile for StdRandomAccessFile {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct PosixMmapReadableFile {
     limiter: Arc<Limiter>,
     m_map: Arc<Mmap>,

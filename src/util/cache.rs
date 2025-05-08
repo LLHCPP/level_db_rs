@@ -20,10 +20,10 @@ use std::sync::Mutex;
 struct Node<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     key: K,
-    value: V,
+    value: Option<V>,
     prev: *mut Node<K, V>,
     next: *mut Node<K, V>,
     ref_count: u64,
@@ -32,23 +32,35 @@ where
 impl<K, V> Node<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V:  Clone,
 {
     fn new(key: K, value: V) -> *mut Node<K, V> {
         let node = Box::new(Node {
             key,
-            value,
+            value: Some(value),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
             ref_count: 0,
         });
         Box::into_raw(node)
     }
+
+    fn new_empty(key: K) -> *mut Node<K, V> {
+        let node = Box::new(Node {
+            key,
+            value: None,
+            prev: ptr::null_mut(),
+            next: ptr::null_mut(),
+            ref_count: 0,
+        });
+        Box::into_raw(node)
+    }
+
 }
 struct LRUCacheInner<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     capacity: usize,
     map: AHashMap<K, *mut Node<K, V>>,
@@ -61,7 +73,7 @@ where
 impl<K, V> LRUCacheInner<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     // Unlink node from its current list
     unsafe fn unlink_node(&self, node: *mut Node<K, V>) {
@@ -110,7 +122,7 @@ where
 struct LRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V:Clone,
 {
     inner: Mutex<LRUCacheInner<K, V>>,
 }
@@ -119,7 +131,7 @@ where
 pub struct LruRes<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     node: *mut Node<K, V>,
     lru: *mut LRUCache<K, V>,
@@ -128,13 +140,13 @@ where
 impl<K, V> LRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     pub fn new(capacity: NonZeroUsize) -> Self {
-        let in_use_head = Node::new(K::default(), V::default());
-        let in_use_tail = Node::new(K::default(), V::default());
-        let lru_head = Node::new(K::default(), V::default());
-        let lru_tail = Node::new(K::default(), V::default());
+        let in_use_head = Node::new_empty(K::default());
+        let in_use_tail = Node::new_empty(K::default());
+        let lru_head = Node::new_empty(K::default());
+        let lru_tail = Node::new_empty(K::default());
 
         unsafe {
             (*in_use_head).next = in_use_tail;
@@ -181,7 +193,7 @@ where
         // Check if key exists
         if let Some(&node) = cache.map.get(&key) {
             unsafe {
-                (*node).value = value;
+                (*node).value = Some(value);
                 (*node).ref_count += 1;
                 cache.move_node(node, true);
             }
@@ -241,7 +253,7 @@ where
 impl<K, V> Drop for LRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     fn drop(&mut self) {
         let cache = self.inner.lock().unwrap();
@@ -273,7 +285,7 @@ where
 impl<K, V> Drop for LruRes<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     fn drop(&mut self) {
         let key = unsafe { &(*self.node).key };
@@ -286,17 +298,21 @@ where
 impl<K, V> LruRes<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     fn value(&self) -> &V {
-        unsafe { &((*(self.node)).value) }
+        let data = unsafe { &((*(self.node)).value)};
+        match data {
+            Some(v) => v,
+            None => panic!("value is None"),
+        }
     }
 }
 
 impl<K, V> Deref for LruRes<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V: Default + Clone,
+    V: Clone,
 {
     type Target = V;
     fn deref(&self) -> &Self::Target {
@@ -309,7 +325,7 @@ const K_NUM_SHARDS: usize = 1 << K_NUM_SHARD_BITS;
 pub(crate) struct ShardedLRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
+    V: Clone,
 {
     shared: [LRUCache<K, V>; K_NUM_SHARDS],
     last_id_: AtomicU64,
@@ -318,9 +334,9 @@ where
 impl<K, V> ShardedLRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
+    V: Clone,
 {
-    fn new(capacity: NonZeroUsize) -> Self {
+    pub(crate) fn new(capacity: NonZeroUsize) -> Self {
         let per_shard = (usize::from(capacity) + (K_NUM_SHARDS - 1)) / K_NUM_SHARDS;
         ShardedLRUCache {
             shared: std::array::from_fn(|_| {

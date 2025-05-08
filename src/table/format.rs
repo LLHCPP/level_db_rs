@@ -7,7 +7,7 @@ use bytes::BytesMut;
 
 const K_MAX_ENCODED_LENGTH: u64 = 10 + 10;
 #[derive(Debug, Clone)]
-struct BlockHandle {
+pub(crate) struct BlockHandle {
     offset: u64,
     size: u64,
 }

@@ -18,7 +18,7 @@ where
     filter_offsets_: Vec<u32>,
 }
 
-struct FilterBlockReader<'a, F>
+pub(crate) struct FilterBlockReader<'a, F>
 where
     F: FilterPolicy,
 {
