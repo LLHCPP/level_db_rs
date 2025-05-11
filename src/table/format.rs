@@ -42,7 +42,7 @@ impl BlockHandle {
     }
 }
 
-const K_ENCODED_LENGTH: u64 = 2 * K_MAX_ENCODED_LENGTH + 8;
+pub const K_ENCODED_LENGTH: u64 = 2 * K_MAX_ENCODED_LENGTH + 8;
 #[derive(Debug, Clone)]
 struct Footer {
     meta_index_handle: BlockHandle,

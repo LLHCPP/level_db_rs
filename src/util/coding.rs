@@ -21,7 +21,7 @@ pub(crate) fn put_fixed32(dst: &mut BytesMut, value: u32) {
     dst.put(&buf[..]);
 }
 
-fn encode_fixed64(dst: &mut [u8], value: u64) {
+pub fn encode_fixed64(dst: &mut [u8], value: u64) {
     dst[0] = (value >> 0) as u8;
     dst[1] = (value >> 8) as u8;
     dst[2] = (value >> 16) as u8;

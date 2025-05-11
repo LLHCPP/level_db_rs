@@ -1,7 +1,7 @@
 use crate::obj::options::Options;
 use crate::obj::slice::Slice;
 use crate::table::table::Table;
-use crate::util::cache::ShardedLRUCache;
+use crate::util::cache::{LruRes, ShardedLRUCache};
 use crate::util::comparator::Comparator;
 use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
@@ -10,6 +10,9 @@ use crate::util::random_access_file::RandomAccessFile;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use crate::db::file_name::{sst_table_file_name, table_file_name};
+use crate::obj::status_rs::Status;
+use crate::util::coding::encode_fixed64;
 
 #[derive(Debug, Default)]
 struct TableAndFile<R>
@@ -63,6 +66,36 @@ where
     }
     
     
-    /*fn findtable(&self, key: &Slice)*/
+    fn find_table(&mut self, file_number: u64, file_size: usize) -> Result<TableAndFile<R>, Status> {
+        let mut buf = [0;size_of::<u64>()];
+        encode_fixed64(&mut buf, file_number);
+        let key = Slice::new_from_ptr(buf.as_ref());
+        match self.cache_.get(&key) {
+            Some(table_and_file) => {
+                let res = table_and_file.value().clone();
+                return Ok(res);
+            }
+            None => {
+                let file_name = table_file_name(&self.db_name, file_number);
+                let mut file = self.env_.new_random_access_file(file_name);
+                if file.is_err() {
+                    let old_filename = sst_table_file_name(&self.db_name, file_number);
+                    file = self.env_.new_random_access_file(old_filename);
+                    if file.is_err() {
+                        return Err(file.err().unwrap());
+                    }
+                }
+                /*let mut s = */
+                
+
+
+
+
+
+            }
+        }
+
+        Err(Status::not_found("", None))
+    }
     
 }

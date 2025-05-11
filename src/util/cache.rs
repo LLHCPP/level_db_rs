@@ -300,7 +300,7 @@ where
     K: Hash + Eq + PartialEq + Default + Clone,
     V: Clone,
 {
-    fn value(&self) -> &V {
+    pub fn value(&self) -> &V {
         let data = unsafe { &((*(self.node)).value)};
         match data {
             Some(v) => v,
@@ -348,7 +348,7 @@ where
     fn shard(hash: u32) -> usize {
         (hash >> (32 - K_NUM_SHARD_BITS)) as usize
     }
-    fn insert(&mut self, key: &K, value: V) -> Option<LruRes<K, V>> {
+    pub fn insert(&mut self, key: &K, value: V) -> Option<LruRes<K, V>> {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].put(key.clone(), value)
     }
@@ -357,12 +357,12 @@ where
         self.last_id_.load(Ordering::Relaxed)
     }
 
-    fn get(&mut self, key: &K) -> Option<LruRes<K, V>> {
+    pub fn get(&mut self, key: &K) -> Option<LruRes<K, V>> {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].get(key)
     }
     /// 删除时，对应value被持有的引用会变成空指针
-    fn erase(&mut self, key: &K) {
+   pub fn erase(&mut self, key: &K) {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].erase(key)
     }
