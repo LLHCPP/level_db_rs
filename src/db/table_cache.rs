@@ -1,7 +1,10 @@
+use crate::db::file_name::{sst_table_file_name, table_file_name};
 use crate::obj::options::Options;
 use crate::obj::slice::Slice;
+use crate::obj::status_rs::Status;
 use crate::table::table::Table;
 use crate::util::cache::{LruRes, ShardedLRUCache};
+use crate::util::coding::encode_fixed64;
 use crate::util::comparator::Comparator;
 use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
@@ -10,20 +13,29 @@ use crate::util::random_access_file::RandomAccessFile;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use crate::db::file_name::{sst_table_file_name, table_file_name};
-use crate::obj::status_rs::Status;
-use crate::util::coding::encode_fixed64;
 
-#[derive(Debug, Default)]
-struct TableAndFile<R>
+struct TableAndFile<'a, C, E, K, V, F, R>
 where
+    C: Comparator,
+    E: Env,
+    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
+    V: Clone,
+    F: FilterPolicy,
     R: RandomAccessFile,
 {
     random_access_file: Arc<R>,
-    table: Arc<Table>,
+    table: Arc<Table<'a, C, E, K, V, F, R>>,
 }
 
-impl<R: RandomAccessFile> Clone for TableAndFile<R> {
+impl<'a, C, E, K, V, F, R> Clone for TableAndFile<'a, C, E, K, V, F, R>
+where
+    C: Comparator,
+    E: Env,
+    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
+    V: Clone,
+    F: FilterPolicy,
+    R: RandomAccessFile,
+{
     fn clone(&self) -> Self {
         TableAndFile {
             random_access_file: Arc::clone(&self.random_access_file),
@@ -32,7 +44,7 @@ impl<R: RandomAccessFile> Clone for TableAndFile<R> {
     }
 }
 
-struct TableCache<C, E, K, V, F, R>
+struct TableCache<'a, C, E, K, V, F, R>
 where
     C: Comparator,
     E: Env,
@@ -44,10 +56,10 @@ where
     env_: Arc<E>,
     db_name: String,
     options: Arc<Options<C, E, K, V, F>>,
-    cache_: ShardedLRUCache<Slice, TableAndFile<R>>,
+    cache_: ShardedLRUCache<Slice, TableAndFile<'a, C, E, K, V, F, R>>,
 }
 
-impl<C, E, K, V, F, R> TableCache<C, E, K, V, F, R>
+impl<'a, C, E, K, V, F, R> TableCache<'a, C, E, K, V, F, R>
 where
     C: Comparator,
     E: Env,
@@ -61,13 +73,16 @@ where
             env_: options.env.clone(),
             db_name,
             options,
-            cache_: ShardedLRUCache::<Slice, TableAndFile<R>>::new(entries),
+            cache_: ShardedLRUCache::<Slice, TableAndFile<'a, C, E, K, V, F, R>>::new(entries),
         }
     }
-    
-    
-    fn find_table(&mut self, file_number: u64, file_size: usize) -> Result<TableAndFile<R>, Status> {
-        let mut buf = [0;size_of::<u64>()];
+
+    fn find_table(
+        &mut self,
+        file_number: u64,
+        file_size: usize,
+    ) -> Result<TableAndFile<'a, C, E, K, V, F, R>, Status> {
+        let mut buf = [0; size_of::<u64>()];
         encode_fixed64(&mut buf, file_number);
         let key = Slice::new_from_ptr(buf.as_ref());
         match self.cache_.get(&key) {
@@ -86,16 +101,9 @@ where
                     }
                 }
                 /*let mut s = */
-                
-
-
-
-
-
             }
         }
 
         Err(Status::not_found("", None))
     }
-    
 }

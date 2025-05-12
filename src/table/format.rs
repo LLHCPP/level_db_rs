@@ -44,7 +44,7 @@ impl BlockHandle {
 
 pub const K_ENCODED_LENGTH: u64 = 2 * K_MAX_ENCODED_LENGTH + 8;
 #[derive(Debug, Clone)]
-struct Footer {
+pub struct Footer {
     meta_index_handle: BlockHandle,
     index_handle: BlockHandle,
 }
@@ -54,6 +54,12 @@ const K_TABLE_MAGIC_NUMBER: u64 = 0xdb4775248b80fb57;
 const K_BLOCK_TRAILER_SIZE: u64 = 5;
 
 impl Footer {
+    pub fn new()->Footer {
+        Footer {
+            meta_index_handle: BlockHandle::new(),
+            index_handle: BlockHandle::new(),
+        }
+    }
     pub fn meta_index_handle(&self) -> &BlockHandle {
         &self.meta_index_handle
     }
@@ -80,7 +86,7 @@ impl Footer {
         debug_assert!(dst.len() == original_size + K_ENCODED_LENGTH as usize)
     }
 
-    fn decode_from(&mut self, input: &mut Slice) -> Status {
+    pub fn decode_from(&mut self, input: &mut Slice) -> Status {
         if input.size() < K_ENCODED_LENGTH as usize {
             return Status::corruption("input is too short to be an sstable", None);
         }
@@ -105,8 +111,8 @@ impl Footer {
 #[derive(Debug, Clone)]
 pub(crate) struct BlockContents {
     pub(crate) data: ByteBuffer,
-    cachable: bool,
-    heap_allocated: bool,
+    pub(crate) cachable: bool,
+    pub(crate) heap_allocated: bool,
 }
 
 /*fn ReadBlock<T:RandomAccessFile>(file:&mut T, )*/

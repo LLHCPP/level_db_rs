@@ -37,15 +37,8 @@ where
     filter_policy: F,
 }
 
-/*struct ReadOptions<C, E, K, V, F>
-where
-    C: Comparator,
-    E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
-    F: FilterPolicy,
-{
-    options: Options<C, E, K, V, F>,
-    max_background_compactions: u32,
-    max_background_flushes:
-}*/
+struct ReadOptions{
+    verify_checksums:  bool,
+    fill_cache: bool,
+    
+}
