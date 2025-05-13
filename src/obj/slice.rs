@@ -105,6 +105,7 @@ impl SliceData {
             SliceData::PtrBuffer(p) => p.as_slice(),
         }
     }
+    
 
     pub fn len(&self) -> usize {
         match self {
@@ -254,6 +255,16 @@ impl Slice {
         }
     }
 
+    pub fn new_bytes_mut(bytes: BytesMut) -> Self {
+        let len = bytes.len();
+        let data = SliceData::new_bytes_mut(bytes);
+        Slice {
+            data_bytes: data,
+            len,
+            cap: len,
+        }
+    }
+
     pub(crate) fn new_from_string_buffer(str: &String) -> Self {
         let buffer_data = ByteBuffer::from_string(str);
         Self::new_from_buff(buffer_data)
@@ -267,6 +278,8 @@ impl Slice {
     pub fn data(&self) -> &[u8] {
         &self.data_bytes.as_ref()[..self.len()]
     }
+
+
     pub(crate) fn new_from_vec(data: Vec<u8>) -> Self {
         let data = SliceData::new_bytes(Bytes::from(data));
         let len = data.len();

@@ -1,4 +1,4 @@
-use crate::obj::options::Options;
+use crate::obj::options::{Options, ReadOptions};
 use crate::obj::status_rs::Status;
 use crate::table::filter_block::FilterBlockReader;
 use crate::table::format::{BlockContents, BlockHandle, Footer, K_ENCODED_LENGTH};
@@ -78,7 +78,12 @@ where
             cachable: false,
             heap_allocated: false,
         };
-        let opt = Rea
+        let mut opt = ReadOptions::new();
+        if options.paranoid_checks {
+            opt.verify_checksums = true;
+        }
+        s =
+
         
 
 

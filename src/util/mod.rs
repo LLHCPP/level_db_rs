@@ -3,7 +3,7 @@ mod bloom_filter_policy;
 pub mod bytewise_comparator_impl;
 pub mod coding;
 pub(crate) mod comparator;
-mod crc32c;
+pub mod crc32c;
 #[cfg(unix)]
 use libc::c_int;
 /// Base flags for opening files on Unix systems, enabling close-on-exec behavior.

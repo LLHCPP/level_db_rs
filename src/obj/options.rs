@@ -5,11 +5,13 @@ use crate::util::filter_policy::FilterPolicy;
 use crate::util::hash::LocalHash;
 use std::hash::Hash;
 use std::sync::Arc;
-
-enum CompressionType {
-    None,
-    Snappy,
-    Zstd,
+use num_derive::{FromPrimitive, ToPrimitive};
+use crate::db::snap_shot::Snapshot;
+#[derive(FromPrimitive, ToPrimitive)]
+pub enum CompressionType {
+    None = 0x0,
+    Snappy = 0x1,
+    Zstd = 0x2,
 }
 
 pub struct Options<C, E, K, V, F>
@@ -23,7 +25,7 @@ where
     pub(crate) comparator: C,
     create_if_missing: bool,
     error_if_exists: bool,
-    paranoid_checks: bool,
+    pub(crate) paranoid_checks: bool,
     pub(crate) env: Arc<E>,
     write_buffer_size: usize,
     max_open_files: u64,
@@ -37,8 +39,17 @@ where
     filter_policy: F,
 }
 
-struct ReadOptions{
-    verify_checksums:  bool,
+pub struct ReadOptions{
+    pub(crate) verify_checksums:  bool,
     fill_cache: bool,
-    
+    snapshot: Option<Arc<dyn Snapshot>>
+}
+impl ReadOptions {
+    pub fn new() -> ReadOptions {
+        ReadOptions {
+            verify_checksums: false,
+            fill_cache: true,
+            snapshot: None,
+        }
+    }
 }

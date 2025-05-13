@@ -48,7 +48,7 @@ impl SnapshotList{
         self.head.prev_
     }
 
-    fn New(&mut self, sequence_number:u64)-> *mut  SnapshotImpl{
+    fn new_node(&mut self, sequence_number:u64) -> *mut  SnapshotImpl{
         unsafe { assert!(self.empty() || (*self.newest()).sequence_number_ <= sequence_number); }
         let snapshot = Box::new(SnapshotImpl::new(sequence_number));
         let snapshot = Box::into_raw(snapshot);

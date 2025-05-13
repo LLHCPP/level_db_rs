@@ -17,7 +17,7 @@ pub trait RandomAccessFile: Send + Sync + Debug  {
     fn new<P: AsRef<std::path::Path>>(filename: P, limiter: Arc<Limiter>) -> io::Result<Self>
     where
         Self: Sized;
-    fn read(&mut self, offset: u64, n: usize, scratch: &mut [u8]) -> Result<Slice, Status>;
+    fn read(&mut self, offset: u64, n: usize, scratch: Option<&mut [u8]>) -> Result<Slice, Status>;
 }
 
 #[derive(Debug, Default)]
@@ -112,7 +112,7 @@ impl RandomAccessFile for StdRandomAccessFile {
             })
         }
     }
-    fn read(&mut self, offset: u64, n: usize, scratch: &mut [u8]) -> Result<Slice, Status> {
+    fn read(&mut self, offset: u64, n: usize, scratch: Option<&mut [u8]>) -> Result<Slice, Status> {
         let temp_file = if let Some(file) = &self.file {
             file // 如果文件已存在，直接使用
         } else {
@@ -127,13 +127,25 @@ impl RandomAccessFile for StdRandomAccessFile {
                 }
             }
         };
-       /* let mut buffer = BytesMut::with_capacity(n);
-        buffer.resize(n, 0);*/
-        let res = match temp_file.read_at(offset, &mut scratch[..n]) {
+        let mut buf:&mut [u8] = &mut [];
+        let mut buffer = BytesMut::new();
+        let scratch_is_none = scratch.is_none();
+        if scratch_is_none {
+            buffer.resize(n, 0);
+            buf = buffer.as_mut();
+        } else {
+            buf = scratch.unwrap();
+        }
+        let res = match temp_file.read_at(offset, &mut buf[..n]) {
             Ok(len) => {
-                let res = Slice::new_from_ptr(&scratch[..len]);
-               /* let res = buffer.split_off(len).freeze();*/
-                Ok(res)
+                return if scratch_is_none {
+                    buffer.truncate(len);
+                    let res = Slice::new_bytes_mut(buffer);
+                    Ok(res)
+                } else {
+                    let res = Slice::new_from_ptr(&buf[..len]);
+                    Ok(res)
+                }
             }
             Err(err) => Err(Status::from_io_error(err, &self.filename)),
         };
@@ -178,7 +190,7 @@ impl RandomAccessFile for PosixMmapReadableFile {
             file: Arc::new(file),
         })
     }
-    fn read(&mut self, offset: u64, n: usize, scratch: &mut [u8]) -> Result<Slice, Status> {
+    fn read(&mut self, offset: u64, n: usize, scratch: Option<&mut [u8]>) -> Result<Slice, Status> {
         if offset + n as u64 > self.m_map.len() as u64 {
             Err(Status::io_error(
                 &self.filename,

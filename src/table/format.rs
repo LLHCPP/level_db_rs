@@ -1,10 +1,13 @@
 use crate::obj::byte_buffer::ByteBuffer;
+use crate::obj::options::{CompressionType, ReadOptions};
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::util::coding::{decode_fixed32, get_varint64, put_fixed32, put_varint64};
 use crate::util::random_access_file::RandomAccessFile;
 use bytes::BytesMut;
-
+use num_traits::FromPrimitive;
+use snap::raw::{decompress_len, Decoder};
+use zstd_safe::DCtx;
 const K_MAX_ENCODED_LENGTH: u64 = 10 + 10;
 #[derive(Debug, Clone)]
 pub(crate) struct BlockHandle {
@@ -54,7 +57,7 @@ const K_TABLE_MAGIC_NUMBER: u64 = 0xdb4775248b80fb57;
 const K_BLOCK_TRAILER_SIZE: u64 = 5;
 
 impl Footer {
-    pub fn new()->Footer {
+    pub fn new() -> Footer {
         Footer {
             meta_index_handle: BlockHandle::new(),
             index_handle: BlockHandle::new(),
@@ -110,9 +113,104 @@ impl Footer {
 
 #[derive(Debug, Clone)]
 pub(crate) struct BlockContents {
-    pub(crate) data: ByteBuffer,
+    pub(crate) data: Slice,
     pub(crate) cachable: bool,
-    pub(crate) heap_allocated: bool,
+    /*    pub(crate) heap_allocated: bool,*/
 }
 
-/*fn ReadBlock<T:RandomAccessFile>(file:&mut T, )*/
+fn read_block<T: RandomAccessFile>(
+    file: &mut T,
+    options: &ReadOptions,
+    handle: &BlockHandle,
+) -> Result<BlockContents, Status> {
+    let n = handle.size();
+    let mut buf = ByteBuffer::new((n + K_BLOCK_TRAILER_SIZE) as usize);
+    let contents = file.read(
+        handle.offset(),
+        (n + K_BLOCK_TRAILER_SIZE) as usize,
+        Some(buf.as_mut_slice()),
+    )?;
+    if contents.size() != (n + K_BLOCK_TRAILER_SIZE) as usize {
+        return Err(Status::corruption("truncated block read", None));
+    }
+    let read_data = contents.data();
+    if options.verify_checksums {
+        let crc = crate::util::crc32c::unmask(decode_fixed32(&read_data[(n + 1) as usize..]));
+        let actual = crate::util::crc32c::value(&read_data[..(n + 1) as usize]);
+        if crc != actual {
+            return Err(Status::corruption("block checksum mismatch", None));
+        }
+    }
+    let compression = CompressionType::from_u8(read_data[n as usize]);
+    if compression.is_none() {
+        return Err(Status::corruption(
+            "bad block type or unsupported block compression type",
+            None,
+        ));
+    }
+    let compression = compression.unwrap();
+    match compression {
+        CompressionType::None => {
+            if read_data.as_ptr() != buf.as_slice().as_ptr() {
+                let result = BlockContents {
+                    data: contents,
+                    cachable: false,
+                };
+                Ok(result)
+            } else {
+                buf.resize(read_data.len());
+                let result = BlockContents {
+                    data: Slice::new_from_buff(buf),
+                    cachable: true,
+                };
+                Ok(result)
+            }
+        }
+        CompressionType::Snappy => {
+            let u_length = decompress_len(read_data);
+            if u_length.is_err() {
+                return Err(Status::corruption(
+                    "corrupted snappy compressed block length",
+                    None,
+                ));
+            }
+            let mut uncompressed = ByteBuffer::new(u_length.unwrap());
+            let success = Decoder::new().decompress(read_data, uncompressed.as_mut_slice());
+            if success.is_err() {
+                return Err(Status::corruption("corrupted zstd compressed block", None));
+            }
+            let result = BlockContents {
+                data: Slice::new_from_buff(uncompressed),
+                cachable: true,
+            };
+            Ok(result)
+        }
+        CompressionType::Zstd => {
+            let u_length = zstd_safe::get_frame_content_size(read_data);
+            if u_length.is_err() {
+                return Err(Status::corruption(
+                    "corrupted zstd compressed block length",
+                    None,
+                ));
+            }
+            let u_length = u_length.unwrap();
+            if u_length.is_none() {
+                return Err(Status::corruption(
+                    "corrupted zstd compressed block length",
+                    None,
+                ));
+            }
+            let mut uncompressed = ByteBuffer::new(u_length.unwrap() as usize);
+            let mut ctx = DCtx::create();
+            let res = ctx.decompress(uncompressed.as_mut_slice(), read_data);
+            if res.is_err() {
+                return Err(Status::corruption("corrupted zstd compressed block", None));
+            }
+            let result = BlockContents {
+                data: Slice::new_from_buff(uncompressed),
+                cachable: true,
+            };
+            Ok(result)
+        }
+    }
+}
