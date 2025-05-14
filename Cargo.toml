@@ -26,4 +26,4 @@ intrusive-collections = "0.9.7"
 num-traits = "0.2.19"
 num-derive = "0.4.2"
 snap = "1.1"
-zstd-safe = "7.2.4"
+zstd-safe = { version = "7.2.4",features = ["default", "zstdmt"]}
