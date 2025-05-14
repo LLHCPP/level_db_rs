@@ -26,7 +26,7 @@ struct Block {
 impl Block {
     fn new(contents: &BlockContents) -> Block {
         let mut res = Block {
-            data: contents.data.clone(),
+            data: ByteBuffer::new(0),
             restart_offset_: 0,
         };
         let buffer = &mut res.data;
