@@ -12,7 +12,6 @@ harness = false  # 禁用默认的基准测试框架，使用 criterion
 criterion = "0.5.1"
 bytes = "1.10.0"
 bumpalo = { version = "3.17.0", features = ["collections", "boxed", "serde"] }
-lru = "0.13.0"
 tracing = "0.1.41"
 crc32c = "0.6.8"
 positioned-io = "0.3.4"
