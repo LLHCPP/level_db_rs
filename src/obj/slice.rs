@@ -348,7 +348,7 @@ impl Slice {
 
     pub(crate) fn advance(&mut self, n: usize) {
         assert!(n <= self.len());
-        self.remove_prefix(n);
+        self.data_bytes.advance(n);
         self.len -= n;
     }
 

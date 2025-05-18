@@ -2,10 +2,11 @@ use crate::obj::byte_buffer::ByteBuffer;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::format::BlockContents;
-use crate::table::iterator::Iter;
+use crate::table::iterator::{new_empty_iterator, new_error_iterator, Iter};
 use crate::util::coding::{decode_fixed32, get_varint32ptr};
 use crate::util::comparator::Comparator;
 use std::cmp::Ordering;
+use std::sync::Arc;
 
 pub(crate) struct Block {
     data: Slice,
@@ -51,6 +52,28 @@ impl Block {
         debug_assert!(self.data.len() >= size_of::<u32>());
         let pos = self.data.len() - size_of::<u32>();
         decode_fixed32(&self.data.data()[pos..])
+    }
+    pub(crate) fn new_iterator(&self, comparator: Arc<dyn Comparator>) -> Box<dyn Iter> {
+        if self.data.size() < size_of::<u32>() {
+            let err: Box<dyn Iter> = Box::new(new_error_iterator(Status::corruption(
+                "bad block contents",
+                None,
+            )));
+            return err;
+        };
+        let num_restarts = self.num_restarts();
+        if num_restarts == 0 {
+            let err: Box<dyn Iter> = Box::new(new_empty_iterator());
+            return err;
+        } else {
+            let res: Box<dyn Iter> = Box::new(BlockIterator::new(
+                comparator,
+                self.data.clone(),
+                self.restart_offset_ as u32,
+                self.num_restarts(),
+            ));
+            res
+        }
     }
 }
 
@@ -110,12 +133,9 @@ pub fn decode_entry<'a>(
 分块优化：重启点将 Block 数据部分划分为多个小块（block），每个块包含若干键值对，块的第一个记录是重启点记录。
 数量：重启点数组的长度由 num_restarts_ 指定，表示数组中 uint32_t 条目的数量。*/
 
-struct BlockIterator<C>
-where
-    C: Comparator,
-{
-    comparator_: C,
-    data_: ByteBuffer,
+struct BlockIterator {
+    comparator_: Arc<dyn Comparator>,
+    data_: Slice,
     restarts_: u32,
     num_restarts_: u32,
     current_: u32,
@@ -125,11 +145,8 @@ where
     status: Status,
 }
 
-impl<C> BlockIterator<C>
-where
-    C: Comparator,
-{
-    fn new(comparator: C, data: ByteBuffer, restarts: u32, num_restarts: u32) -> Self {
+impl BlockIterator {
+    fn new(comparator: Arc<dyn Comparator>, data: Slice, restarts: u32, num_restarts: u32) -> Self {
         BlockIterator {
             comparator_: comparator,
             data_: data,
@@ -148,13 +165,13 @@ where
 
     fn next_entry_offset(&self) -> u32 {
         (self.value_.data().as_ptr() as u64 + self.value_.size() as u64
-            - self.data_.as_slice().as_ptr() as u64) as u32
+            - self.data_.data().as_ptr() as u64) as u32
     }
 
     fn get_restart_point(&self, index: u32) -> u32 {
         assert!(index < self.num_restarts_);
         decode_fixed32(
-            &self.data_.as_slice()[(self.restarts_ + index * size_of::<u32>() as u32) as usize..],
+            &self.data_.data()[(self.restarts_ + index * size_of::<u32>() as u32) as usize..],
         )
     }
 
@@ -164,7 +181,7 @@ where
         let offset = self.get_restart_point(index);
         let mut new_value = self.data_.clone();
         new_value.advance(offset as usize);
-        self.value_ = Slice::new_from_buff(new_value);
+        self.value_ = new_value;
         self.value_.resize(0);
     }
 
@@ -189,7 +206,7 @@ where
         let mut non_shared = 0;
         let mut value_length = 0;
         let kv_ptr = decode_entry(
-            &self.data_[p..limit],
+            &self.data_.data()[p..limit],
             &mut shared,
             &mut non_shared,
             &mut value_length,
@@ -217,10 +234,7 @@ where
         }
     }
 }
-impl<C> Iter for BlockIterator<C>
-where
-    C: Comparator,
-{
+impl Iter for BlockIterator {
     fn valid(&self) -> bool {
         self.current_ < self.restarts_
     }
@@ -257,7 +271,7 @@ where
             let mut non_shared = 0u32;
             let mut value_length = 0u32;
             let kv_ptr = decode_entry(
-                &self.data_[region_offset as usize..self.restarts_ as usize],
+                &self.data_.data()[region_offset as usize..self.restarts_ as usize],
                 &mut shared,
                 &mut non_shared,
                 &mut value_length,

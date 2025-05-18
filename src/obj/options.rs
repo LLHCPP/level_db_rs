@@ -14,13 +14,12 @@ pub enum CompressionType {
     Zstd = 0x2,
 }
 
-pub struct Options<C, E, K, V, F>
+pub struct Options<C, E, K, V>
 where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Clone,
-    F: FilterPolicy,
 {
     pub(crate) comparator: C,
     create_if_missing: bool,
@@ -36,7 +35,7 @@ where
     compression: CompressionType,
     zstd_compression_level: u32,
     reuse_logs: bool,
-    filter_policy: F,
+    pub(crate) filter_policy: Option<Arc<dyn FilterPolicy>>,
 }
 
 pub struct ReadOptions {

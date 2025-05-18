@@ -47,7 +47,7 @@ impl Comparator for BytewiseComparatorImpl {
     }
 }
 
-fn byte_wise_comparator() -> Arc<dyn Comparator> {
+pub fn byte_wise_comparator() -> Arc<dyn Comparator> {
     BYTEWISE
         .get_or_init(|| Arc::new(BytewiseComparatorImpl {}))
         .clone()

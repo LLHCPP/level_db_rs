@@ -13,7 +13,7 @@ pub trait Iter {
     fn status(&self) -> Status;
 }
 
-struct EmptyIterator {
+pub struct EmptyIterator {
     status: Status,
 }
 
@@ -42,11 +42,11 @@ impl Iter for EmptyIterator {
     }
 }
 
-fn new_empty_iterator() -> EmptyIterator {
+pub fn new_empty_iterator() -> EmptyIterator {
     EmptyIterator {
         status: Status::ok(),
     }
 }
-fn new_error_iterator(status: Status) -> EmptyIterator {
+pub fn new_error_iterator(status: Status) -> EmptyIterator {
     EmptyIterator { status }
 }

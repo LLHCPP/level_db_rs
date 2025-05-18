@@ -16,7 +16,7 @@ pub(crate) struct BlockHandle {
     size: u64,
 }
 impl BlockHandle {
-    fn new() -> BlockHandle {
+    pub(crate) fn new() -> BlockHandle {
         BlockHandle { offset: 0, size: 0 }
     }
     pub fn set_offset(&mut self, offset: u64) {

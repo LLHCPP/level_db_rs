@@ -14,25 +14,23 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
-struct TableAndFile<'a, C, E, K, V, F>
+struct TableAndFile<C, E, K, V>
 where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Clone,
-    F: FilterPolicy,
 {
     random_access_file: Arc<Mutex<dyn RandomAccessFile>>,
-    table: Arc<Table<'a, C, E, K, V, F>>,
+    table: Arc<Table<C, E, K, V>>,
 }
 
-impl<'a, C, E, K, V, F> Clone for TableAndFile<'a, C, E, K, V, F>
+impl<'a, C, E, K, V> Clone for TableAndFile<C, E, K, V>
 where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Clone,
-    F: FilterPolicy,
 {
     fn clone(&self) -> Self {
         TableAndFile {
@@ -42,34 +40,32 @@ where
     }
 }
 
-struct TableCache<'a, C, E, K, V, F>
+struct TableCache<C, E, K, V>
 where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Clone,
-    F: FilterPolicy,
 {
     env_: Arc<E>,
     db_name: String,
-    options: Arc<Options<C, E, K, V, F>>,
-    cache_: ShardedLRUCache<Slice, TableAndFile<'a, C, E, K, V, F>>,
+    options: Arc<Options<C, E, K, V>>,
+    cache_: ShardedLRUCache<Slice, TableAndFile<C, E, K, V>>,
 }
 
-impl<'a, C, E, K, V, F> TableCache<'a, C, E, K, V, F>
+impl<'a, C, E, K, V> TableCache<C, E, K, V>
 where
     C: Comparator,
     E: Env,
     K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
     V: Clone,
-    F: FilterPolicy,
 {
-    fn new(db_name: String, options: Arc<Options<C, E, K, V, F>>, entries: NonZeroUsize) -> Self {
+    fn new(db_name: String, options: Arc<Options<C, E, K, V>>, entries: NonZeroUsize) -> Self {
         TableCache {
             env_: options.env.clone(),
             db_name,
             options,
-            cache_: ShardedLRUCache::<Slice, TableAndFile<'a, C, E, K, V, F>>::new(entries),
+            cache_: ShardedLRUCache::<Slice, TableAndFile<C, E, K, V>>::new(entries),
         }
     }
 
@@ -77,7 +73,7 @@ where
         &mut self,
         file_number: u64,
         file_size: usize,
-    ) -> Result<TableAndFile<'a, C, E, K, V, F>, Status> {
+    ) -> Result<TableAndFile<C, E, K, V>, Status> {
         let mut buf = [0; size_of::<u64>()];
         encode_fixed64(&mut buf, file_number);
         let key = Slice::new_from_ptr(buf.as_ref());
