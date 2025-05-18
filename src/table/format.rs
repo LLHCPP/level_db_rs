@@ -7,6 +7,7 @@ use crate::util::random_access_file::RandomAccessFile;
 use bytes::BytesMut;
 use num_traits::FromPrimitive;
 use snap::raw::{decompress_len, Decoder};
+use std::sync::{Arc, Mutex};
 use zstd_safe::DCtx;
 const K_MAX_ENCODED_LENGTH: u64 = 10 + 10;
 #[derive(Debug, Clone)]
@@ -118,13 +119,14 @@ pub(crate) struct BlockContents {
     /*    pub(crate) heap_allocated: bool,*/
 }
 
-fn read_block<T: RandomAccessFile>(
-    file: &mut T,
+pub(crate) fn read_block(
+    file: Arc<Mutex<dyn RandomAccessFile>>,
     options: &ReadOptions,
     handle: &BlockHandle,
 ) -> Result<BlockContents, Status> {
     let n = handle.size();
     let mut buf = ByteBuffer::new((n + K_BLOCK_TRAILER_SIZE) as usize);
+    let mut file = file.lock().unwrap();
     let contents = file.read(
         handle.offset(),
         (n + K_BLOCK_TRAILER_SIZE) as usize,

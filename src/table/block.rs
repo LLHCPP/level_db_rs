@@ -7,8 +7,8 @@ use crate::util::coding::{decode_fixed32, get_varint32ptr};
 use crate::util::comparator::Comparator;
 use std::cmp::Ordering;
 
-struct Block {
-    data: ByteBuffer,
+pub(crate) struct Block {
+    data: Slice,
     restart_offset_: usize,
 }
 
@@ -24,9 +24,9 @@ struct Block {
 +---------------------------------------+*/
 
 impl Block {
-    fn new(contents: &BlockContents) -> Block {
+    pub(crate) fn new(contents: BlockContents) -> Block {
         let mut res = Block {
-            data: ByteBuffer::new(0),
+            data: contents.data,
             restart_offset_: 0,
         };
         let buffer = &mut res.data;
@@ -34,7 +34,7 @@ impl Block {
         if buffer.len() < size_of::<u32>() {
             buffer.resize(0);
         } else {
-            let num_restarts = decode_fixed32(&buffer[buffer.len() - size_of::<u32>()..]);
+            let num_restarts = decode_fixed32(&buffer.data()[buffer.len() - size_of::<u32>()..]);
 
             let max_restarts_allowed = (buffer.len() - size_of::<u32>()) / size_of::<u32>();
             if num_restarts > max_restarts_allowed as u32 {
@@ -50,7 +50,7 @@ impl Block {
     fn num_restarts(&self) -> u32 {
         debug_assert!(self.data.len() >= size_of::<u32>());
         let pos = self.data.len() - size_of::<u32>();
-        decode_fixed32(&self.data[pos..])
+        decode_fixed32(&self.data.data()[pos..])
     }
 }
 

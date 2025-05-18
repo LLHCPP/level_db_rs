@@ -105,7 +105,6 @@ impl SliceData {
             SliceData::PtrBuffer(p) => p.as_slice(),
         }
     }
-    
 
     pub fn len(&self) -> usize {
         match self {
@@ -278,7 +277,6 @@ impl Slice {
     pub fn data(&self) -> &[u8] {
         &self.data_bytes.as_ref()[..self.len()]
     }
-
 
     pub(crate) fn new_from_vec(data: Vec<u8>) -> Self {
         let data = SliceData::new_bytes(Bytes::from(data));

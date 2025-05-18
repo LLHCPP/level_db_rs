@@ -1,10 +1,10 @@
-use std::fmt::Debug;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use bytes::BytesMut;
 use memmap2::Mmap;
 use positioned_io;
 use positioned_io::ReadAt;
+use std::fmt::Debug;
 use std::fs::{File, OpenOptions};
 use std::io;
 #[cfg(unix)]
@@ -13,7 +13,7 @@ use {crate::util::K_OPEN_BASE_FLAGS, std::os::unix::fs::OpenOptionsExt};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
-pub trait RandomAccessFile: Send + Sync + Debug  {
+pub trait RandomAccessFile: Send + Sync + Debug {
     fn new<P: AsRef<std::path::Path>>(filename: P, limiter: Arc<Limiter>) -> io::Result<Self>
     where
         Self: Sized;
@@ -127,7 +127,7 @@ impl RandomAccessFile for StdRandomAccessFile {
                 }
             }
         };
-        let mut buf:&mut [u8] = &mut [];
+        let mut buf: &mut [u8] = &mut [];
         let mut buffer = BytesMut::new();
         let scratch_is_none = scratch.is_none();
         if scratch_is_none {

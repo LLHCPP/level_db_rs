@@ -32,7 +32,7 @@ where
 impl<K, V> Node<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V:  Clone,
+    V: Clone,
 {
     fn new(key: K, value: V) -> *mut Node<K, V> {
         let node = Box::new(Node {
@@ -55,7 +55,6 @@ where
         });
         Box::into_raw(node)
     }
-
 }
 struct LRUCacheInner<K, V>
 where
@@ -122,7 +121,7 @@ where
 struct LRUCache<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
-    V:Clone,
+    V: Clone,
 {
     inner: Mutex<LRUCacheInner<K, V>>,
 }
@@ -301,7 +300,7 @@ where
     V: Clone,
 {
     pub fn value(&self) -> &V {
-        let data = unsafe { &((*(self.node)).value)};
+        let data = unsafe { &((*(self.node)).value) };
         match data {
             Some(v) => v,
             None => panic!("value is None"),
@@ -352,7 +351,7 @@ where
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].put(key.clone(), value)
     }
-    fn new_id(&self) -> u64 {
+    pub(crate) fn new_id(&self) -> u64 {
         self.last_id_.fetch_add(1, Ordering::Relaxed);
         self.last_id_.load(Ordering::Relaxed)
     }
@@ -362,7 +361,7 @@ where
         self.shared[Self::shard(hash)].get(key)
     }
     /// 删除时，对应value被持有的引用会变成空指针
-   pub fn erase(&mut self, key: &K) {
+    pub fn erase(&mut self, key: &K) {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].erase(key)
     }

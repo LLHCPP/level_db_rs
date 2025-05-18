@@ -1,12 +1,12 @@
+use crate::db::snap_shot::Snapshot;
 use crate::util::cache::ShardedLRUCache;
 use crate::util::comparator::Comparator;
 use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
 use crate::util::hash::LocalHash;
+use num_derive::{FromPrimitive, ToPrimitive};
 use std::hash::Hash;
 use std::sync::Arc;
-use num_derive::{FromPrimitive, ToPrimitive};
-use crate::db::snap_shot::Snapshot;
 #[derive(FromPrimitive, ToPrimitive)]
 pub enum CompressionType {
     None = 0x0,
@@ -29,7 +29,7 @@ where
     pub(crate) env: Arc<E>,
     write_buffer_size: usize,
     max_open_files: u64,
-    block_cache: ShardedLRUCache<K, V>,
+    pub(crate) block_cache: Option<ShardedLRUCache<K, V>>,
     block_size: usize,
     pub(crate) block_restart_interval: u32,
     max_file_size: usize,
@@ -39,10 +39,10 @@ where
     filter_policy: F,
 }
 
-pub struct ReadOptions{
-    pub(crate) verify_checksums:  bool,
+pub struct ReadOptions {
+    pub(crate) verify_checksums: bool,
     fill_cache: bool,
-    snapshot: Option<Arc<dyn Snapshot>>
+    snapshot: Option<Arc<dyn Snapshot>>,
 }
 impl ReadOptions {
     pub fn new() -> ReadOptions {
