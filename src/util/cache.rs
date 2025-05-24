@@ -133,7 +133,7 @@ where
     V: Clone,
 {
     node: *mut Node<K, V>,
-    lru: *mut LRUCache<K, V>,
+    lru: *const LRUCache<K, V>,
 }
 
 impl<K, V> LRUCache<K, V>
@@ -164,7 +164,7 @@ where
             }),
         }
     }
-    pub fn get<Q>(&mut self, key: &Q) -> Option<LruRes<K, V>>
+    pub fn get<Q>(&self, key: &Q) -> Option<LruRes<K, V>>
     where
         Q: ?Sized + Hash + Eq,
         K: Borrow<Q>,
@@ -180,14 +180,14 @@ where
                 drop(cache);
                 Some(LruRes {
                     node,
-                    lru: self as *mut Self,
+                    lru: self as *const Self,
                 })
             }
         } else {
             None
         }
     }
-    pub fn put(&mut self, key: K, value: V) -> Option<LruRes<K, V>> {
+    pub fn put(&self, key: K, value: V) -> Option<LruRes<K, V>> {
         let mut cache = self.inner.lock().unwrap();
         // Check if key exists
         if let Some(&node) = cache.map.get(&key) {
@@ -199,7 +199,7 @@ where
             drop(cache);
             return Some(LruRes {
                 node,
-                lru: self as *mut Self,
+                lru: self as *const Self,
             });
         }
         // Create new node
@@ -222,12 +222,12 @@ where
         drop(cache);
         Some(LruRes {
             node,
-            lru: self as *mut Self,
+            lru: self as *const Self,
         })
     }
 
     // Move node from in-use to LRU list (simulating release of reference)
-    pub fn release(&mut self, key: &K) {
+    pub fn release(&self, key: &K) {
         let mut cache = self.inner.lock().unwrap();
         if let Some(&node) = cache.map.get(key) {
             unsafe {
@@ -240,7 +240,7 @@ where
     }
 
     /// 删除时，对应value被持有的引用会变成空指针
-    pub fn erase(&mut self, key: &K) {
+    pub fn erase(&self, key: &K) {
         let mut cache = self.inner.lock().unwrap();
         if let Some(&node) = cache.map.get(&key) {
             unsafe { cache.remove_node(node) }
@@ -347,7 +347,7 @@ where
     fn shard(hash: u32) -> usize {
         (hash >> (32 - K_NUM_SHARD_BITS)) as usize
     }
-    pub fn insert(&mut self, key: &K, value: V) -> Option<LruRes<K, V>> {
+    pub fn insert(&self, key: &K, value: V) -> Option<LruRes<K, V>> {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].put(key.clone(), value)
     }
@@ -356,12 +356,12 @@ where
         self.last_id_.load(Ordering::Relaxed)
     }
 
-    pub fn get(&mut self, key: &K) -> Option<LruRes<K, V>> {
+    pub fn get(&self, key: &K) -> Option<LruRes<K, V>> {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].get(key)
     }
     /// 删除时，对应value被持有的引用会变成空指针
-    pub fn erase(&mut self, key: &K) {
+    pub fn erase(&self, key: &K) {
         let hash = key.local_hash();
         self.shared[Self::shard(hash)].erase(key)
     }

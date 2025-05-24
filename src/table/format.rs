@@ -119,6 +119,15 @@ pub(crate) struct BlockContents {
     /*    pub(crate) heap_allocated: bool,*/
 }
 
+impl BlockContents {
+    pub(crate) fn new() -> Self {
+        BlockContents {
+            data: Slice::new_from_ptr(&[]),
+            cachable: false,
+        }
+    }
+}
+
 pub(crate) fn read_block(
     file: Arc<Mutex<dyn RandomAccessFile>>,
     options: &ReadOptions,

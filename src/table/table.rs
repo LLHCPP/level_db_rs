@@ -1,27 +1,26 @@
+use crate::obj::byte_buffer::ByteBuffer;
 use crate::obj::options::{Options, ReadOptions};
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::block::Block;
 use crate::table::filter_block::FilterBlockReader;
-use crate::table::format::{read_block, BlockHandle, Footer, K_ENCODED_LENGTH};
+use crate::table::format::{read_block, BlockContents, BlockHandle, Footer, K_ENCODED_LENGTH};
+use crate::table::iterator::{new_error_iterator, Iter};
 use crate::util::bytewise_comparator_impl::byte_wise_comparator;
+use crate::util::cache::ShardedLRUCache;
+use crate::util::coding::encode_fixed64;
 use crate::util::comparator::Comparator;
 use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
-use crate::util::hash::LocalHash;
 use crate::util::random_access_file::RandomAccessFile;
 use bytes::BytesMut;
-use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 
-struct Rep<C, E, K, V>
+struct Rep<E>
 where
-    C: Comparator,
     E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Clone,
 {
-    options: Arc<Options<C, E, K, V>>,
+    options: Arc<Options<E>>,
     status: Status,
     file: Arc<Mutex<dyn RandomAccessFile>>,
     cache_id: u64,
@@ -47,32 +46,26 @@ where
 +---------------------+
 | Footer (固定长度)     | 记录 metaindex block 和 index block 的位置
 +---------------------+*/
-pub struct Table<C, E, K, V>
+pub struct Table<E>
 where
-    C: Comparator,
     E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Clone,
 {
-    rep: Arc<Mutex<Rep<C, E, K, V>>>,
+    rep: Arc<Mutex<Rep<E>>>,
 }
 
-impl<'a, C, E, K, V> Table<C, E, K, V>
+impl<'a, E> Table<E>
 where
-    C: Comparator,
     E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Clone,
 {
-    fn new(rep: Arc<Mutex<Rep<C, E, K, V>>>) -> Table<C, E, K, V> {
+    fn new(rep: Arc<Mutex<Rep<E>>>) -> Table<E> {
         Table { rep }
     }
     fn open(
         &mut self,
-        options: Arc<Options<C, E, K, V>>,
+        options: Arc<Options<E>>,
         file: Arc<Mutex<dyn RandomAccessFile>>,
         size: u64,
-    ) -> Result<Arc<Table<C, E, K, V>>, Status> {
+    ) -> Result<Arc<Table<E>>, Status> {
         if size < K_ENCODED_LENGTH {
             return Err(Status::corruption(
                 "file is too short to be an ss_table",
@@ -162,6 +155,66 @@ where
         iter.seek(&key);
         if iter.valid() && iter.key() == key {
             self.read_filter(&mut iter.value());
+        }
+    }
+
+    fn block_reader(
+        table: &mut Table<E>,
+        read_options: &ReadOptions,
+        index_value: &Slice,
+    ) -> Box<dyn Iter> {
+        let mut rep = table.rep.lock().unwrap();
+        let block_cache = &rep.options.block_cache;
+        let mut input = index_value.clone();
+        let mut handle = BlockHandle::new();
+        let mut status = handle.decode_from(&mut input);
+        let mut block = None;
+        if status.is_ok() {
+            match block_cache {
+                Some(ref cache) => {
+                    let mut cache_key_buffer = [0u8; 16];
+                    encode_fixed64(cache_key_buffer.as_mut_slice(), rep.cache_id);
+                    encode_fixed64(&mut cache_key_buffer.as_mut_slice()[8..], handle.offset());
+                    let key =
+                        Slice::new_from_buff(ByteBuffer::from_ptr(cache_key_buffer.as_slice()));
+                    let cache_handle = cache.get(&key);
+                    if cache_handle.is_some() {
+                        let cache_handle = cache_handle.unwrap().value().clone();
+                        block = Some(cache_handle);
+                    } else {
+                        let s = read_block(rep.file.clone(), read_options, &handle);
+                        if s.is_ok() {
+                            let contents = s.unwrap();
+                            let need_cache = contents.cachable && read_options.fill_cache;
+                            let cache_block = Block::new(contents);
+                            block = Some(cache_block.clone());
+                            if need_cache {
+                                let _ = cache.insert(&key, cache_block);
+                            };
+                        } else {
+                            status = s.err().unwrap();
+                        }
+                    }
+                }
+                _ => {
+                    let s = read_block(rep.file.clone(), read_options, &handle);
+                    if s.is_ok() {
+                        block = Some(Block::new(s.unwrap()));
+                    } else {
+                        status = s.err().unwrap();
+                    }
+                }
+            }
+        }
+        match block {
+            Some(ref block) => {
+                let mut iter = block.new_iterator(rep.options.comparator.clone());
+                iter
+            }
+            _ => {
+                let err_iter: Box<dyn Iter> = Box::new(new_error_iterator(status));
+                err_iter
+            }
         }
     }
 }

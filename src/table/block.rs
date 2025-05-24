@@ -8,9 +8,10 @@ use crate::util::comparator::Comparator;
 use std::cmp::Ordering;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub(crate) struct Block {
-    data: Slice,
-    restart_offset_: usize,
+    pub(crate) data: Slice,
+    pub(crate) restart_offset_: usize,
 }
 
 /// [Keys and Values (data part)]&emsp;&ensp;[Restart Points]&emsp;&emsp;[Metadata]

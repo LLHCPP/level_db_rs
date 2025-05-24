@@ -9,14 +9,11 @@ use bytes::{BufMut, BytesMut};
 use std::cmp::{min, Ordering};
 use std::hash::Hash;
 
-struct BlockBuilder<C, E, K, V>
+struct BlockBuilder<E>
 where
-    C: Comparator,
     E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
 {
-    option: Options<C, E, K, V>,
+    option: Options<E>,
     buffer_: BytesMut,
     restarts_: Vec<u32>,
     counter_: i32, //上一个restart index之后，存储了多少个kv
@@ -24,14 +21,11 @@ where
     last_key: BytesMut,
 }
 
-impl<C, E, K, V> BlockBuilder<C, E, K, V>
+impl<E> BlockBuilder<E>
 where
-    C: Comparator,
     E: Env,
-    K: Hash + Eq + PartialEq + Default + Clone + LocalHash,
-    V: Default + Clone,
 {
-    fn new(option: Options<C, E, K, V>) -> BlockBuilder<C, E, K, V> {
+    fn new(option: Options<E>) -> BlockBuilder<E> {
         assert!(option.block_restart_interval >= 1);
         BlockBuilder {
             option,

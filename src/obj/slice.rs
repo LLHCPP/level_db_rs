@@ -215,6 +215,14 @@ pub struct Slice {
 }
 
 impl Slice {
+    pub fn new_empty() -> Slice {
+        Slice {
+            data_bytes: SliceData::PtrBuffer(ByteBuffer::from_ptr(&[])),
+            len: 0,
+            cap: 0,
+        }
+    }
+
     pub(crate) fn new_from_slice(p0: &Slice, p1: Range<usize>) -> Slice {
         let data = p0.data_bytes.slice(p1);
         let len = data.len();
