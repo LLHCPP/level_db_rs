@@ -16,7 +16,7 @@ use std::sync::Mutex;
     fn erase(&mut self, key: &T);
     fn release(&mut self, key: &T);
 }*/
-// Node in either in-use or LRU doubly-linked list
+// Node in either in-use or LRU doubly linked list
 struct Node<K, V>
 where
     K: Hash + Eq + PartialEq + Default + Clone,
@@ -63,8 +63,8 @@ where
 {
     capacity: usize,
     map: AHashMap<K, *mut Node<K, V>>,
-    in_use_head: *mut Node<K, V>, // Dummy head for in-use list
-    in_use_tail: *mut Node<K, V>, // Dummy tail for in-use list
+    in_use_head: *mut Node<K, V>, // Dummy head for an in-use list
+    in_use_tail: *mut Node<K, V>, // Dummy tail for an in-use list
     lru_head: *mut Node<K, V>,    // Dummy head for LRU list
     lru_tail: *mut Node<K, V>,    // Dummy tail for LRU list
 }
@@ -82,7 +82,7 @@ where
         (*node).next = ptr::null_mut();
     }
 
-    // Add node to in-use list
+    // Add node to an in-use list
     unsafe fn add_to_in_use(&mut self, node: *mut Node<K, V>) {
         (*node).next = (*self.in_use_head).next;
         (*node).prev = self.in_use_head;
@@ -108,7 +108,7 @@ where
         }
     }
 
-    // Remove and deallocate node (only from LRU list)
+    // Remove and deallocate node (only from an LRU list)
     unsafe fn remove_node(&mut self, node: *mut Node<K, V>) {
         if (*node).ref_count > 0 {
             panic!("Cannot remove node from in-use list");
@@ -202,7 +202,7 @@ where
                 lru: self as *const Self,
             });
         }
-        // Create new node
+        // Create a new node
         let node = Node::new(key.clone(), value);
         cache.map.insert(key, node);
         unsafe {
@@ -226,7 +226,7 @@ where
         })
     }
 
-    // Move node from in-use to LRU list (simulating release of reference)
+    // Move node from an in-use to LRU list (simulating release of reference)
     pub fn release(&self, key: &K) {
         let mut cache = self.inner.lock().unwrap();
         if let Some(&node) = cache.map.get(key) {
@@ -258,7 +258,7 @@ where
         let cache = self.inner.lock().unwrap();
 
         unsafe {
-            // Clean up in-use list (nodes are not deallocated per requirement)
+            // Clean up an in-use list (nodes are not deallocated per requirement)
             let mut current = (*cache.in_use_head).next;
             while current != cache.in_use_tail {
                 let next = (*current).next;
