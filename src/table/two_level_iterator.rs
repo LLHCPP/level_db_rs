@@ -5,8 +5,8 @@ use crate::table::iterator::Iter;
 use crate::table::iterator_wrapper::IteratorWrapper;
 use crate::table::table::Table;
 use crate::util::env::Env;
-use std::cmp::Ordering;
 use bytes::BufMut;
+use std::cmp::Ordering;
 
 type BlockFunction<E> = Box<dyn Fn(&mut Table<E>, &ReadOptions, &Slice) -> Box<dyn Iter>>;
 struct TwoLevelIterator<E>

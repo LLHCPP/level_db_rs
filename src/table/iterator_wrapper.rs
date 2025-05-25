@@ -19,7 +19,6 @@ impl IteratorWrapper {
         res
     }
 
-
     pub fn update(&mut self) {
         self.valid = self.iter.as_ref().map(|iter| iter.valid()).unwrap_or(false);
         if self.valid {
@@ -46,7 +45,7 @@ impl IteratorWrapper {
         assert!(self.valid());
         self.key.clone()
     }
-    pub  fn value(&self) -> Slice {
+    pub fn value(&self) -> Slice {
         assert!(self.valid());
         self.iter.as_ref().unwrap().value()
     }
@@ -70,7 +69,7 @@ impl IteratorWrapper {
         self.update();
     }
 
-    pub  fn seek_to_first(&mut self) {
+    pub fn seek_to_first(&mut self) {
         assert!(self.iter.is_some());
         self.iter.as_mut().map(|iter| iter.seek_to_first());
         self.update();
