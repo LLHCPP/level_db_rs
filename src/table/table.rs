@@ -159,14 +159,14 @@ where
     }
 
     fn block_reader(
-        table: &mut Table<E>,
+        table: &Table<E>,
         read_options: &ReadOptions,
         index_value: &Slice,
     ) -> Box<dyn Iter> {
         let mut rep = table.rep.lock().unwrap();
         let block_cache = &rep.options.block_cache;
-        let mut input = index_value.clone();
         let mut handle = BlockHandle::new();
+        let mut input = index_value.clone();
         let mut status = handle.decode_from(&mut input);
         let mut block = None;
         if status.is_ok() {
@@ -208,7 +208,7 @@ where
         }
         match block {
             Some(ref block) => {
-                let mut iter = block.new_iterator(rep.options.comparator.clone());
+                let iter = block.new_iterator(rep.options.comparator.clone());
                 iter
             }
             _ => {
