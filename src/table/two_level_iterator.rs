@@ -9,7 +9,7 @@ use bytes::BufMut;
 use std::cmp::Ordering;
 
 type BlockFunction<E> = Box<dyn Fn(&Table<E>, &ReadOptions, &Slice) -> Box<dyn Iter>>;
-pub struct TwoLevelIterator<'a,E>
+pub struct TwoLevelIterator<'a, E>
 where
     E: Env,
 {
@@ -22,7 +22,7 @@ where
     data_block_handle_: Vec<u8>,
 }
 
-impl<'a,E> TwoLevelIterator<'a,E>
+impl<'a, E> TwoLevelIterator<'a, E>
 where
     E: Env,
 {
@@ -105,7 +105,7 @@ where
         }
     }
 }
-impl<'a,E> Iter for TwoLevelIterator<'a, E>
+impl<'a, E> Iter for TwoLevelIterator<'a, E>
 where
     E: Env,
 {
