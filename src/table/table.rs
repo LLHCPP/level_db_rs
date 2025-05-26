@@ -6,6 +6,7 @@ use crate::table::block::Block;
 use crate::table::filter_block::FilterBlockReader;
 use crate::table::format::{read_block, BlockContents, BlockHandle, Footer, K_ENCODED_LENGTH};
 use crate::table::iterator::{new_error_iterator, Iter};
+use crate::table::two_level_iterator::TwoLevelIterator;
 use crate::util::bytewise_comparator_impl::byte_wise_comparator;
 use crate::util::cache::ShardedLRUCache;
 use crate::util::coding::encode_fixed64;
@@ -55,7 +56,7 @@ where
 
 impl<'a, E> Table<E>
 where
-    E: Env,
+    E: Env + 'static,
 {
     fn new(rep: Arc<Mutex<Rep<E>>>) -> Table<E> {
         Table { rep }
@@ -216,5 +217,19 @@ where
                 err_iter
             }
         }
+    }
+
+    fn new_iterator(&'a self, options: ReadOptions) -> Box<dyn Iter + 'a> {
+        let rep = self.rep.lock().unwrap();
+        let index_block_iter = rep.index_block.new_iterator(rep.options.comparator.clone());
+        let block_function = Box::new(Table::<E>::block_reader);
+
+        let res: Box<dyn Iter> = Box::new(TwoLevelIterator::<E>::new(
+            index_block_iter,
+            block_function,
+            self,
+            options,
+        ));
+        res
     }
 }

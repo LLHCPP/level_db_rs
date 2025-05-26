@@ -8,13 +8,13 @@ use crate::util::env::Env;
 use bytes::BufMut;
 use std::cmp::Ordering;
 
-type BlockFunction<E> = Box<dyn Fn(&mut Table<E>, &ReadOptions, &Slice) -> Box<dyn Iter>>;
-struct TwoLevelIterator<E>
+type BlockFunction<E> = Box<dyn Fn(&Table<E>, &ReadOptions, &Slice) -> Box<dyn Iter>>;
+pub struct TwoLevelIterator<'a,E>
 where
     E: Env,
 {
     block_function: BlockFunction<E>,
-    arg: Box<Table<E>>,
+    arg: &'a Table<E>,
     read_options: ReadOptions,
     status: Status,
     index_iter_: IteratorWrapper,
@@ -22,14 +22,14 @@ where
     data_block_handle_: Vec<u8>,
 }
 
-impl<E> TwoLevelIterator<E>
+impl<'a,E> TwoLevelIterator<'a,E>
 where
     E: Env,
 {
-    fn new(
+    pub fn new(
         index_iter: Box<dyn Iter>,
         block_function: BlockFunction<E>,
-        table: Box<Table<E>>,
+        table: &Table<E>,
         read_options: ReadOptions,
     ) -> TwoLevelIterator<E> {
         TwoLevelIterator {
@@ -105,7 +105,7 @@ where
         }
     }
 }
-impl<E> Iter for TwoLevelIterator<E>
+impl<'a,E> Iter for TwoLevelIterator<'a, E>
 where
     E: Env,
 {

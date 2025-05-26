@@ -37,6 +37,7 @@ where
     pub(crate) filter_policy: Option<Arc<dyn FilterPolicy>>,
 }
 
+#[derive(Clone)]
 pub struct ReadOptions {
     pub(crate) verify_checksums: bool,
     pub(crate) fill_cache: bool,
