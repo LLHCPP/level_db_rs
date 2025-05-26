@@ -114,7 +114,7 @@ impl FilterBlockReader {
         &self.data.data()[self.offset_..]
     }
 
-    fn key_may_match(&self, key: &Slice, block_offset: u64) -> bool {
+    pub(crate) fn key_may_match(&self, block_offset: u64, key: &Slice) -> bool {
         let index = block_offset >> self.base_lg_;
         if index < self.num_ as u64 {
             let start = decode_fixed32(&self.offset()[(index * 4) as usize..]);

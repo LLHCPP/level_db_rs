@@ -4,19 +4,18 @@ use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::block::Block;
 use crate::table::filter_block::FilterBlockReader;
-use crate::table::format::{read_block, BlockContents, BlockHandle, Footer, K_ENCODED_LENGTH};
+use crate::table::format::{read_block, BlockHandle, Footer, K_ENCODED_LENGTH};
 use crate::table::iterator::{new_error_iterator, Iter};
 use crate::table::two_level_iterator::TwoLevelIterator;
 use crate::util::bytewise_comparator_impl::byte_wise_comparator;
-use crate::util::cache::ShardedLRUCache;
 use crate::util::coding::encode_fixed64;
-use crate::util::comparator::Comparator;
 use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
 use crate::util::random_access_file::RandomAccessFile;
-use bytes::BytesMut;
+use std::any::Any;
+use std::convert::identity;
 use std::sync::{Arc, Mutex};
-
+type HandleResult = Box<dyn Fn(Box<dyn Any>, &Slice, &Slice)>;
 struct Rep<E>
 where
     E: Env,
@@ -41,11 +40,11 @@ where
 +---------------------+
 | Filter Block (可选) |
 +---------------------+
-| Metaindex Block     |获取 filter block（如果存在）在table file的offset和size
+| Meta_index Block     |获取 filter block（如果存在）在table file的offset和size
 +---------------------+
 | Index Block         |存储 Data Block 的索引，读取时候，由Index Block索引定位数据属于哪个block，再由block内部的restart_index_定位具体位置
 +---------------------+
-| Footer (固定长度)     | 记录 metaindex block 和 index block 的位置
+| Footer (固定长度)     | 记录 meta_index block 和 index block 的位置
 +---------------------+*/
 pub struct Table<E>
 where
@@ -83,7 +82,7 @@ where
         drop(read_file);
         let mut data = s?;
         let mut footer = Footer::new();
-        let mut s = footer.decode_from(&mut data);
+        let s = footer.decode_from(&mut data);
         if !s.is_ok() {
             return Err(s);
         }
@@ -164,7 +163,7 @@ where
         read_options: &ReadOptions,
         index_value: &Slice,
     ) -> Box<dyn Iter> {
-        let mut rep = table.rep.lock().unwrap();
+        let rep = table.rep.lock().unwrap();
         let block_cache = &rep.options.block_cache;
         let mut handle = BlockHandle::new();
         let mut input = index_value.clone();
@@ -224,12 +223,68 @@ where
         let index_block_iter = rep.index_block.new_iterator(rep.options.comparator.clone());
         let block_function = Box::new(Table::<E>::block_reader);
 
-        let res: Box<dyn Iter> = Box::new(TwoLevelIterator::<E>::new(
+        let res: Box<dyn Iter> = Box::new(TwoLevelIterator::<'a, E>::new(
             index_block_iter,
             block_function,
             self,
             options,
         ));
         res
+    }
+
+    fn internal_get(
+        &self,
+        options: &ReadOptions,
+        key: &Slice,
+        arg: Box<dyn Any>,
+        handle_result: HandleResult,
+    ) -> Status {
+        let mut s = Status::ok();
+        let rep = self.rep.lock().unwrap();
+        let mut iiter = rep.index_block.new_iterator(rep.options.comparator.clone());
+        iiter.seek(key);
+        if iiter.valid() {
+            let mut handle_value = iiter.value();
+            let filter = rep.filter.clone();
+            let mut handle = BlockHandle::new();
+            if filter.is_some()
+                && handle.decode_from(&mut handle_value).is_ok()
+                && !filter
+                    .map(|filter| filter.key_may_match(handle.offset(), key))
+                    .unwrap_or(true)
+            {
+            } else {
+                let mut block_iter = Self::block_reader(self, options, &iiter.value());
+                block_iter.seek(key);
+                if block_iter.valid() {
+                    handle_result(arg, &block_iter.key(), &block_iter.value());
+                }
+                s = block_iter.status();
+            }
+        }
+        if s.is_ok() {
+            s = iiter.status();
+        }
+        s
+    }
+
+    fn approximate_offset_of(&self, key: &Slice) -> u64 {
+        let rep = self.rep.lock().unwrap();
+        let mut index_iter = rep.index_block.new_iterator(rep.options.comparator.clone());
+        index_iter.seek(key);
+        let mut result = 0u64;
+        if index_iter.valid() {
+            let mut handle = BlockHandle::new();
+            let mut input = index_iter.value();
+            let s = handle.decode_from(&mut input);
+            if s.is_ok() {
+                result = handle.offset();
+            } else {
+                result = rep.meta_index_handle.offset();
+            }
+        } else {
+            result = rep.meta_index_handle.offset();
+        }
+        result
     }
 }
