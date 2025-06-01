@@ -20,7 +20,7 @@ pub(crate) mod random_access_file;
 mod sequential_file;
 mod test_util;
 mod thread_pool;
-mod writable_file;
+pub mod writable_file;
 
 pub use hash::hash;
 pub use hash::hash_string;

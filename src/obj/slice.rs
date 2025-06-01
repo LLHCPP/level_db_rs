@@ -22,7 +22,7 @@ struct BytesMutSlice {
 }
 
 #[derive(Debug, Clone)]
-enum SliceData {
+pub(crate) enum SliceData {
     Bytes(Bytes),            // 包含 Bytes 数据
     BytesMut(BytesMutSlice), // 包含 BytesMut 数据
     MMap(MMapSlice),
@@ -185,7 +185,9 @@ impl PartialEq for SliceData {
     }
 }
 
-impl Eq for SliceData {}
+impl Eq for SliceData {
+
+}
 impl PartialOrd for SliceData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let self_bytes = self.as_ref();
@@ -208,6 +210,7 @@ impl Hash for SliceData {
 }
 
 #[derive(Debug, Clone, Eq, Hash)]
+#[derive(PartialOrd)]
 pub struct Slice {
     pub(crate) data_bytes: SliceData,
     len: usize,
@@ -404,6 +407,12 @@ impl Index<usize> for Slice {
 impl PartialEq for Slice {
     fn eq(&self, other: &Self) -> bool {
         self.data_bytes == other.data_bytes
+    }
+}
+
+impl Ord for Slice {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.compare(other)
     }
 }
 

@@ -305,7 +305,7 @@ mod tests {
     fn test_mutable_slice() {
         let mut buffer = ByteBuffer::new(4);
         buffer.resize(4);
-        let mut slice = buffer.as_mut_slice();
+        let slice = buffer.as_mut_slice();
         slice[0] = 42;
         assert_eq!(buffer.as_slice()[0], 42);
     }
