@@ -10,6 +10,9 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
+use crate::obj::options::Options;
+use crate::table::iterator::Iter;
+use crate::util::env::Env;
 
 fn reverse(key : &Slice) -> Slice {
     let str = key.to_string();
@@ -163,9 +166,9 @@ impl RandomAccessFile for  StringSource{
 
 type KVMap = BTreeMap<Slice, Slice>;
 trait Constructor{
-
-
-
+    fn finish_impl<E:Env>(&self, option: &Options<E>, data: &KVMap)  -> Status;
+    fn new_iterator(&self) -> Box<dyn Iter>;
+/*    fn db() -> D*/
 }
 
 
