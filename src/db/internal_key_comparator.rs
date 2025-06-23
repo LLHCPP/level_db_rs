@@ -4,6 +4,7 @@ use crate::util::coding::decode_fixed64;
 use crate::util::comparator::Comparator;
 use bytes::{BufMut, BytesMut};
 use std::cmp::{Ordering, PartialEq};
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Eq, Copy)]
 #[repr(u8)]
@@ -63,10 +64,10 @@ fn parse_internal_key(internal_key: &Slice, result: &mut ParsedInternalKey) -> b
     c <= ValueType::KTypeValue as u8
 }
 
-struct InternalKeyComparator<T: Comparator> {
-    user_comparator_: T,
+pub(crate) struct InternalKeyComparator {
+    user_comparator_: Arc<dyn Comparator>,
 }
-impl<T: Comparator> Comparator for InternalKeyComparator<T> {
+impl Comparator for InternalKeyComparator {
     fn compare(&self, akey: &Slice, bkey: &Slice) -> Ordering {
         let mut r = self
             .user_comparator_
@@ -146,6 +147,7 @@ mod tests {
     use crate::util::bytewise_comparator_impl;
     use crate::util::comparator::Comparator;
     use bytes::BytesMut;
+    use std::sync::Arc;
     fn i_key(user_key: &BytesMut, seq: u64, vt: ValueType) -> BytesMut {
         let mut encode = BytesMut::new();
         append_internal_key(
@@ -161,7 +163,7 @@ mod tests {
     fn shorten(s: &BytesMut, l: &BytesMut) -> BytesMut {
         let mut result = s.clone();
         let internal_key_comparator = InternalKeyComparator {
-            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
+            user_comparator_: Arc::new(bytewise_comparator_impl::BytewiseComparatorImpl {}),
         };
         internal_key_comparator.find_shortest_separator(&mut result, &Slice::new_from_mut(l));
         result
@@ -169,7 +171,7 @@ mod tests {
     fn shortsuccessor(s: &BytesMut) -> BytesMut {
         let mut result = s.clone();
         let internal_key_comparator = InternalKeyComparator {
-            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
+            user_comparator_: Arc::new(bytewise_comparator_impl::BytewiseComparatorImpl {}),
         };
         internal_key_comparator.find_short_successor(&mut result);
         result

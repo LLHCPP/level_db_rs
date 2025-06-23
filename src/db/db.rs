@@ -6,6 +6,7 @@ use crate::obj::status_rs::Status;
 use crate::table::iterator::Iter;
 use crate::util::env::Env;
 use std::sync::Arc;
+use crate::db::internal_key_comparator::InternalKeyComparator;
 
 struct Range {
     start: Slice,
@@ -22,7 +23,7 @@ trait DB<E>
 where
     E: Env,
 {
-    fn open(options: Arc<Options<E>>, name: &String) -> Result<Arc<dyn DB<E>>, Status>
+    fn open(options: Arc<Options<E>>, name: &String) -> Result<Arc<Self>, Status>
     where
         Self: Sized;
 
@@ -42,3 +43,11 @@ where
 
     fn compact_range(&self, begin: &Slice, end: &Slice);
 }
+
+
+struct DBImpl{
+    internal_comparator_ : InternalKeyComparator,
+/*    internal_filter_policy_: */
+}
+
+
