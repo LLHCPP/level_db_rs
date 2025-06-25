@@ -1,6 +1,5 @@
 use crate::db::internal_key_comparator::InternalKeyComparator;
 use crate::obj::slice::Slice;
-use crate::util::env::Env;
 use crossbeam_skiplist::SkipMap;
 
 struct KeyComparator {
