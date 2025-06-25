@@ -1,12 +1,15 @@
+use crate::db::internal_filter_policy::InternalFilterPolicy;
+use crate::db::internal_key_comparator::InternalKeyComparator;
 use crate::db::snap_shot::Snapshot;
 use crate::db::write_options::WriteOptions;
 use crate::obj::options::{Options, ReadOptions};
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::iterator::Iter;
-use crate::util::env::Env;
+use crate::util::env::{Env, FileLock};
 use std::sync::Arc;
-use crate::db::internal_key_comparator::InternalKeyComparator;
+use std::sync::atomic::AtomicBool;
+use crate::db::table_cache::TableCache;
 
 struct Range {
     start: Slice,
@@ -44,10 +47,19 @@ where
     fn compact_range(&self, begin: &Slice, end: &Slice);
 }
 
+struct DBImpl<E>
+where
+    E: Env,
+{
+    internal_comparator_: InternalKeyComparator,
+    internal_filter_policy_: InternalFilterPolicy,
+    options_: Arc<Options<E>>,
+    owns_info_log_: bool,
+    owns_cache_: bool,
+    dbname_:String,
+    table_cache_: Arc<TableCache<E>>,
+    db_lock: Arc<FileLock>,
+    shutting_down: AtomicBool,
 
-struct DBImpl{
-    internal_comparator_ : InternalKeyComparator,
-/*    internal_filter_policy_: */
+
 }
-
-

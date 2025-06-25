@@ -31,7 +31,7 @@ where
     }
 }
 
-struct TableCache<E>
+pub struct TableCache<E>
 where
     E: Env,
 {

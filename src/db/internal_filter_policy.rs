@@ -3,7 +3,7 @@ use crate::util::filter_policy::FilterPolicy;
 use bytes::BytesMut;
 use std::sync::Arc;
 
-struct InternalFilterPolicy {
+pub(crate) struct InternalFilterPolicy {
     user_policy_: Arc<dyn FilterPolicy>,
 }
 

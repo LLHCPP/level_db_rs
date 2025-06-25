@@ -7,4 +7,5 @@ mod file_name;
 pub mod snap_shot;
 mod write_options;
 mod read_options;
+mod mem_table;
 pub mod db;
