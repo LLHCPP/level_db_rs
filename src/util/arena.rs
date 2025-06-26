@@ -1,5 +1,5 @@
 use bumpalo::Bump;
-struct Arena {
+pub(crate) struct Arena {
     bump: Bump,
 }
 impl Arena {

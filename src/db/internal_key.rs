@@ -1,10 +1,17 @@
 use crate::db::internal_key_comparator::{
-    append_internal_key, extract_user_key, ParsedInternalKey, ValueType,
+    append_internal_key, extract_user_key, InternalKeyComparator, ParsedInternalKey, ValueType,
 };
 use crate::obj::slice::Slice;
+use crate::util::bytewise_comparator_impl;
+use crate::util::comparator::Comparator;
 use bytes::BytesMut;
+use std::cmp::Ordering;
 
-struct InternalKey {
+static INTERNAL_KEY_CMP: InternalKeyComparator = InternalKeyComparator {
+    user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
+};
+
+pub(crate) struct InternalKey {
     pub rep_: BytesMut,
 }
 
@@ -42,6 +49,35 @@ impl InternalKey {
 
     fn clear(&mut self) {
         self.rep_.clear();
+    }
+}
+
+impl Eq for InternalKey {}
+
+impl PartialEq<Self> for InternalKey {
+    fn eq(&self, other: &Self) -> bool {
+        INTERNAL_KEY_CMP.compare(
+            &Slice::new_from_ptr(self.rep_.as_ref()),
+            &Slice::new_from_ptr(other.rep_.as_ref()),
+        ) == Ordering::Equal
+    }
+}
+
+impl PartialOrd<Self> for InternalKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Option::from(INTERNAL_KEY_CMP.compare(
+            &Slice::new_from_ptr(self.rep_.as_ref()),
+            &Slice::new_from_ptr(other.rep_.as_ref()),
+        ))
+    }
+}
+
+impl Ord for InternalKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        INTERNAL_KEY_CMP.compare(
+            &Slice::new_from_ptr(self.rep_.as_ref()),
+            &Slice::new_from_ptr(other.rep_.as_ref()),
+        )
     }
 }
 

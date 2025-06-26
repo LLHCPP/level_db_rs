@@ -1,4 +1,5 @@
 use crate::obj::slice::Slice;
+use crate::util::bytewise_comparator_impl::BytewiseComparatorImpl;
 use crate::util::coding;
 use crate::util::coding::decode_fixed64;
 use crate::util::comparator::Comparator;
@@ -65,7 +66,7 @@ fn parse_internal_key(internal_key: &Slice, result: &mut ParsedInternalKey) -> b
 }
 
 pub(crate) struct InternalKeyComparator {
-    user_comparator_: Arc<dyn Comparator>,
+    pub(crate) user_comparator_: BytewiseComparatorImpl,
 }
 impl Comparator for InternalKeyComparator {
     fn compare(&self, akey: &Slice, bkey: &Slice) -> Ordering {
@@ -73,8 +74,8 @@ impl Comparator for InternalKeyComparator {
             .user_comparator_
             .compare(&extract_user_key(akey), &extract_user_key(bkey));
         if r == Ordering::Equal {
-            let a_num = coding::decode_fixed64(&akey.data()[akey.len() - 8..]);
-            let b_num = coding::decode_fixed64(&bkey.data()[akey.len() - 8..]);
+            let a_num = decode_fixed64(&akey.data()[akey.len() - 8..]);
+            let b_num = decode_fixed64(&bkey.data()[akey.len() - 8..]);
             if a_num > b_num {
                 r = Ordering::Less;
             } else if a_num < b_num {
@@ -163,7 +164,7 @@ mod tests {
     fn shorten(s: &BytesMut, l: &BytesMut) -> BytesMut {
         let mut result = s.clone();
         let internal_key_comparator = InternalKeyComparator {
-            user_comparator_: Arc::new(bytewise_comparator_impl::BytewiseComparatorImpl {}),
+            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
         };
         internal_key_comparator.find_shortest_separator(&mut result, &Slice::new_from_mut(l));
         result
@@ -171,7 +172,7 @@ mod tests {
     fn shortsuccessor(s: &BytesMut) -> BytesMut {
         let mut result = s.clone();
         let internal_key_comparator = InternalKeyComparator {
-            user_comparator_: Arc::new(bytewise_comparator_impl::BytewiseComparatorImpl {}),
+            user_comparator_: bytewise_comparator_impl::BytewiseComparatorImpl {},
         };
         internal_key_comparator.find_short_successor(&mut result);
         result

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::db::snap_shot::Snapshot;
+use std::sync::Arc;
 
 struct ReadOptions {
     verify_checksums: bool,

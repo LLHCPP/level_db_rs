@@ -185,9 +185,7 @@ impl PartialEq for SliceData {
     }
 }
 
-impl Eq for SliceData {
-
-}
+impl Eq for SliceData {}
 impl PartialOrd for SliceData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let self_bytes = self.as_ref();
@@ -209,8 +207,7 @@ impl Hash for SliceData {
     }
 }
 
-#[derive(Debug, Clone, Eq, Hash)]
-#[derive(PartialOrd)]
+#[derive(Debug, Clone, Eq, Hash, PartialOrd)]
 pub struct Slice {
     pub(crate) data_bytes: SliceData,
     len: usize,
