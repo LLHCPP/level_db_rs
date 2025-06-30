@@ -48,7 +48,7 @@ pub fn put_fixed64(dst: &mut BytesMut, value: u64) {
 }
 
 #[inline]
-fn encode_varint32(dst: &mut [u8], v: u32) -> &[u8] {
+pub fn encode_varint32(dst: &mut [u8], v: u32) -> &mut [u8] {
     const B: u32 = 128;
     let num_bytes = if v < (1 << 7) {
         dst[0] = v as u8;
@@ -76,17 +76,18 @@ fn encode_varint32(dst: &mut [u8], v: u32) -> &[u8] {
         dst[4] = (v >> 28) as u8;
         5
     };
-    &dst[..num_bytes]
+    &mut dst[num_bytes..]
 }
 
 pub(crate) fn put_varint32(dst: &mut BytesMut, v: u32) {
     let mut buf: [u8; 5] = [0; 5];
     let append = encode_varint32(&mut buf, v);
-    dst.put_slice(append);
+    let len = 5 - append.len();
+    dst.put_slice(&buf[..len]);
 }
 
 #[inline]
-fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
+pub fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     const B: u64 = 128;
     let mut pos: usize = 0;
     while v >= B {
@@ -96,12 +97,13 @@ fn encode_varint64(dst: &mut [u8], mut v: u64) -> &mut [u8] {
     }
     dst[pos] = v as u8;
     pos += 1;
-    &mut dst[..pos]
+    &mut dst[pos..]
 }
 pub(crate) fn put_varint64(dst: &mut BytesMut, v: u64) {
     let mut buf: [u8; 10] = [0; 10];
     let append = encode_varint64(&mut buf, v);
-    dst.put_slice(append);
+    let len = 10 - append.len();
+    dst.put_slice(&buf[..len]);
 }
 
 fn put_length_prefixed_slice(dst: &mut BytesMut, value: Slice) {
@@ -109,7 +111,7 @@ fn put_length_prefixed_slice(dst: &mut BytesMut, value: Slice) {
     dst.put_slice(value.data());
 }
 
-fn varint_length(mut v: u64) -> u32 {
+pub(crate) fn varint_length(mut v: u64) -> u32 {
     let mut len = 1u32;
     while v >= 128 {
         v >>= 7;

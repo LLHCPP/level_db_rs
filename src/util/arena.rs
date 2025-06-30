@@ -6,11 +6,11 @@ impl Arena {
     fn new() -> Self {
         Self { bump: Bump::new() }
     }
-    fn alloc<T>(&mut self, value: T) -> &mut T {
+   pub(crate) fn alloc<T>(&self, value: T) -> &mut T {
         self.bump.alloc(value)
     }
     // 专门为数组优化的版本
-    fn alloc_array<T>(&mut self, len: usize) -> &mut [T] {
+    pub(crate) fn alloc_array<T>(&self, len: usize) -> &mut [T] {
         let layout = std::alloc::Layout::array::<T>(len).unwrap();
         let slice = {
             let ptr = self.bump.alloc_layout(layout).as_ptr() as *mut T;

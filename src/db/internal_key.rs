@@ -16,7 +16,7 @@ pub(crate) struct InternalKey {
 }
 
 impl InternalKey {
-    fn new(user_key: Slice, sequence_number: u64, t: ValueType) -> InternalKey {
+    pub(crate) fn new(user_key: Slice, sequence_number: u64, t: ValueType) -> InternalKey {
         let mut result = InternalKey {
             rep_: BytesMut::with_capacity(user_key.len() + 8),
         };
