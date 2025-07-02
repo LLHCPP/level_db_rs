@@ -282,6 +282,11 @@ impl Slice {
         Self::new_from_buff(buffer_data)
     }
 
+    pub(crate) fn new_from_empty() -> Self {
+        let buffer_data = ByteBuffer::new(0);
+        Self::new_from_buff(buffer_data)
+    }
+
     pub fn data(&self) -> &[u8] {
         &self.data_bytes.as_ref()[..self.len()]
     }
