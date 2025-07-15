@@ -65,4 +65,6 @@ where
     mem_: Option<Arc<MemTable>>,
     imm_: Option<Arc<MemTable>>,
     logfile_: Option<Arc<dyn WritableFile>>,
+    logfile_number_: u64,
+    
 }
