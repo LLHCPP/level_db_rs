@@ -12,7 +12,7 @@ struct KeyComparator {
     comparator: InternalKeyComparator,
 }
 
-struct MemTable {
+pub struct MemTable {
     table: SkipMap<Slice, (u64, ValueType, Slice)>,
     arena: Arena,
 }

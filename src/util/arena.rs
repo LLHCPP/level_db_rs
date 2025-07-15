@@ -6,7 +6,7 @@ impl Arena {
     fn new() -> Self {
         Self { bump: Bump::new() }
     }
-   pub(crate) fn alloc<T>(&self, value: T) -> &mut T {
+    pub(crate) fn alloc<T>(&self, value: T) -> &mut T {
         self.bump.alloc(value)
     }
     // 专门为数组优化的版本

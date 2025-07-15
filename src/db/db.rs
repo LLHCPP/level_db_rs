@@ -1,5 +1,6 @@
 use crate::db::internal_filter_policy::InternalFilterPolicy;
 use crate::db::internal_key_comparator::InternalKeyComparator;
+use crate::db::mem_table::MemTable;
 use crate::db::snap_shot::Snapshot;
 use crate::db::table_cache::TableCache;
 use crate::db::write_options::WriteOptions;
@@ -8,6 +9,7 @@ use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::table::iterator::Iter;
 use crate::util::env::{Env, FileLock};
+use crate::util::writable_file::WritableFile;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -60,4 +62,7 @@ where
     table_cache_: Arc<TableCache<E>>,
     db_lock: Arc<FileLock>,
     shutting_down: AtomicBool,
+    mem_: Option<Arc<MemTable>>,
+    imm_: Option<Arc<MemTable>>,
+    logfile_: Option<Arc<dyn WritableFile>>,
 }
