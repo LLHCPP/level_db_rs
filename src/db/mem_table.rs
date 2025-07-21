@@ -1,10 +1,9 @@
-use crate::db::internal_key::InternalKey;
 use crate::db::internal_key_comparator::{InternalKeyComparator, ValueType};
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::util::arena::Arena;
 use crate::util::coding::{
-    encode_fixed64, encode_varint32, encode_varint64, get_varint32ptr, varint_length,
+    encode_fixed64, encode_varint32, get_varint32ptr, varint_length,
 };
 use crossbeam_skiplist::SkipMap;
 
@@ -44,7 +43,7 @@ impl MemTable {
                     let mut p = encode_varint32(buf, internal_key_size as u32);
                     p.copy_from_slice(key.data());
                     p = &mut p[key_size..];
-                    encode_fixed64(p, (seq << 8 | value_type as u64));
+                    encode_fixed64(p, seq << 8 | value_type as u64);
                     p = &mut p[8..];
                     p = encode_varint32(p, val_size as u32);
                     p.copy_from_slice(value.data());
@@ -58,7 +57,7 @@ impl MemTable {
     fn get(&self, key: &Slice) -> Result<Slice, Status> {
         match self.table.get(key) {
             Some(v) => {
-                let (seq, value_type, value) = v.value();
+                let (_seq, value_type, value) = v.value();
                 match value_type {
                     ValueType::KTypeDeletion => Err(Status::not_found("not found", None)),
                     _ => {
