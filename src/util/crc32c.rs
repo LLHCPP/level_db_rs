@@ -1,4 +1,4 @@
-use crc32c;
+pub(crate) use crc32c;
 const K_MASK_DELTA: u32 = 0xa282ead8;
 pub fn extend(init_crc: u32, data: &[u8]) -> u32 {
     crc32c::crc32c_append(init_crc, data)

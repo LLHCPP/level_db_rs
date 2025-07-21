@@ -1,4 +1,5 @@
 #[repr(usize)]
+#[derive(Debug, Clone)]
 pub enum RecordType {
     KZeroType = 0,
     KFullType = 1,

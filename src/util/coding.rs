@@ -1,7 +1,7 @@
 use crate::obj::slice::Slice;
 use bytes::{BufMut, BytesMut};
 
-fn encode_fixed32(dst: &mut [u8], value: u32) {
+pub fn encode_fixed32(dst: &mut [u8], value: u32) {
     dst[0] = (value >> 0) as u8;
     dst[1] = (value >> 8) as u8;
     dst[2] = (value >> 16) as u8;
