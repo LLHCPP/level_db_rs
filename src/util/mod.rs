@@ -17,7 +17,7 @@ mod histogram;
 mod options;
 mod random;
 pub(crate) mod random_access_file;
-mod sequential_file;
+pub(crate) mod sequential_file;
 mod test_util;
 mod thread_pool;
 pub mod writable_file;
