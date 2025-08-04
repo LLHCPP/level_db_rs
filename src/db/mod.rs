@@ -5,10 +5,10 @@ mod table_cache;
 
 pub mod db;
 mod file_name;
+pub mod log_format;
+pub mod log_reader;
+pub mod log_writer;
 pub mod mem_table;
 mod read_options;
 pub mod snap_shot;
 mod write_options;
-pub mod log_writer;
-pub mod log_reader;
-pub mod log_format;

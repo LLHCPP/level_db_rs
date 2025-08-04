@@ -2,9 +2,7 @@ use crate::db::internal_key_comparator::{InternalKeyComparator, ValueType};
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
 use crate::util::arena::Arena;
-use crate::util::coding::{
-    encode_fixed64, encode_varint32, get_varint32ptr, varint_length,
-};
+use crate::util::coding::{encode_fixed64, encode_varint32, get_varint32ptr, varint_length};
 use crossbeam_skiplist::SkipMap;
 
 struct KeyComparator {
