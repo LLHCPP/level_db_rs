@@ -1,11 +1,19 @@
-use crate::db::log_format::{K_BLOCK_SIZE, K_MAX_RECORD_TYPE};
+use crate::db::log_format::{RecordType, K_BLOCK_SIZE, K_HEADER_SIZE, K_MAX_RECORD_TYPE};
+use crate::obj::byte_buffer::ByteBuffer;
 use crate::obj::slice::Slice;
 use crate::obj::status_rs::Status;
+use crate::util;
+use crate::util::coding::decode_fixed32;
+use crate::util::crc32c;
 use crate::util::sequential_file::SequentialFile;
+use bytes::{BufMut, BytesMut};
 use std::sync::{Arc, Mutex};
 
-const K_EOF: usize = K_MAX_RECORD_TYPE + 1;
-const K_BAD_RECORD: usize = K_MAX_RECORD_TYPE + 2;
+#[repr(usize)]
+enum ReadStatus {
+    KEof = K_MAX_RECORD_TYPE + 1,
+    KBadRecord = K_MAX_RECORD_TYPE + 2,
+}
 
 trait Reporter {
     fn corruption(&mut self, bytes: usize, status: &Status);
@@ -44,8 +52,8 @@ impl Reader {
             resyncing_: initial_offset > 0,
         }
     }
-    fn report_corruption(&mut self, bytes: u64, reason: String) {
-        self.report_drop(bytes, Status::corruption(reason.as_str(), None))
+    fn report_corruption(&mut self, bytes: u64, reason: &str) {
+        self.report_drop(bytes, Status::corruption(reason, None))
     }
 
     fn report_drop(&mut self, bytes: u64, reason: Status) {
@@ -73,5 +81,89 @@ impl Reader {
             }
         }
         true
+    }
+    fn read_physical_record(&mut self) -> Result<(Slice, RecordType), ReadStatus> {
+        loop {
+            if self.buffer_.size() < K_HEADER_SIZE {
+                if !self.eof_ {
+                    self.buffer_.clear();
+                    let res = self.file_.lock().unwrap().read(K_BLOCK_SIZE);
+                    match res {
+                        Ok(buffer) => {
+                            self.end_of_buffer_offset_ += buffer.size() as u64;
+                            self.buffer_ = buffer;
+                            if self.buffer_.size() < K_BLOCK_SIZE {
+                                self.eof_ = true;
+                            }
+                        }
+                        Err(e) => {
+                            self.buffer_.clear();
+                            self.report_drop(K_BLOCK_SIZE as u64, e);
+                            self.eof_ = true;
+                            return Err(ReadStatus::KEof);
+                        }
+                    }
+                    continue;
+                } else {
+                    self.buffer_.clear();
+                    return Err(ReadStatus::KEof);
+                }
+            }
+            let header = self.buffer_.data();
+            let a = header[4] as u32 & 0xff;
+            let b = header[5] as u32 & 0xff;
+            let data_type = header[6];
+            let length = (a | (b << 8)) as usize;
+            if K_HEADER_SIZE + length > self.buffer_.size() {
+                let drop_size = self.buffer_.size();
+                self.buffer_.clear();
+                if !self.eof_ {
+                    self.report_corruption(drop_size as u64, "bad record length");
+                    return Err(ReadStatus::KBadRecord);
+                }
+                return Err(ReadStatus::KEof);
+            }
+
+            if data_type == RecordType::KZeroType as u8 && length == 0 {
+                self.buffer_.clear();
+                return Err(ReadStatus::KBadRecord);
+            }
+
+            if self.checksum_ {
+                let expected_crc = crc32c::unmask(decode_fixed32(header));
+                let actual_crc = crc32c::value(&header[6..length + 7]);
+                if expected_crc != actual_crc {
+                    let drop_size = self.buffer_.size();
+                    self.buffer_.clear();
+                    self.report_corruption(drop_size as u64, "checksum mismatch");
+                    return Err(ReadStatus::KBadRecord);
+                }
+            }
+            let buffer_size = self.buffer_.size();
+            let res = Slice::new_from_array(&header[K_HEADER_SIZE..K_HEADER_SIZE + length]);
+            self.buffer_.remove_prefix(K_HEADER_SIZE + length);
+            if (self.end_of_buffer_offset_ as usize)
+                < (self.initial_offset_ + buffer_size - K_HEADER_SIZE + length)
+            {
+                return Err(ReadStatus::KBadRecord);
+            }
+
+            let enum_value: RecordType = unsafe { std::mem::transmute(data_type) };
+            return Ok((res, enum_value));
+        }
+    }
+
+    fn read_record(&mut self, record: &mut Slice, scratch: &mut BytesMut) {
+        if self.last_record_offset_ < self.initial_offset_ as u64 {
+            if !self.skip_to_initial_block() {
+                return;
+            }
+        }
+        scratch.clear();
+        record.clear();
+        let in_fragmented_record = false;
+        let prospective_record_offset = 0;
+        let fragment = Slice::new_from_empty();
+        loop { /* let record_type = self*/ }
     }
 }
