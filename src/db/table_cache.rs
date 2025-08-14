@@ -1,4 +1,3 @@
-use std::any::Any;
 use crate::db::file_name::{sst_table_file_name, table_file_name};
 use crate::obj::options::{Options, ReadOptions};
 use crate::obj::slice::Slice;
@@ -8,6 +7,7 @@ use crate::util::cache::ShardedLRUCache;
 use crate::util::coding::encode_fixed64;
 use crate::util::env::Env;
 use crate::util::random_access_file::RandomAccessFile;
+use std::any::Any;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
@@ -89,19 +89,25 @@ where
         }
     }
 
-
-    fn get(&mut self, options: &ReadOptions, file_number:u64, file_size:u64, K:&Slice, arg: Box<dyn Any>, handle_result: HandleResult) -> Result<(), Status> {
+    fn get(
+        &mut self,
+        options: &ReadOptions,
+        file_number: u64,
+        file_size: u64,
+        K: &Slice,
+        arg: Box<dyn Any>,
+        handle_result: HandleResult,
+    ) -> Result<(), Status> {
         let table_file = self.find_table(file_number, file_size as usize)?;
         let table = table_file.table;
         let s = table.internal_get(options, K, arg, handle_result);
         Ok(())
     }
-    
+
     fn evict(&mut self, file_number: u64) {
         let mut buf = [0; size_of::<u64>()];
         encode_fixed64(&mut buf, file_number);
         let key = Slice::new_from_ptr(buf.as_ref());
         self.cache_.erase(&key);
     }
-
 }
