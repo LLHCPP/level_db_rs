@@ -13,7 +13,7 @@ use std::fs::{remove_file, DirBuilder, File, OpenOptions};
 use std::os::fd::BorrowedFd;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::{env, fs, io, thread};
@@ -129,7 +129,7 @@ pub trait Env {
     fn new_random_access_file<P: AsRef<Path>>(
         &self,
         filename: P,
-    ) -> Result<Arc<dyn RandomAccessFile>, Status>;
+    ) -> Result<Arc<Mutex<dyn RandomAccessFile>>, Status>;
     fn new_writable_file<T: WritableFile, P: AsRef<Path>>(&self, filename: P) -> Result<T, Status>;
     fn new_appendable_file<T: WritableFile, P: AsRef<Path>>(
         &self,
@@ -230,11 +230,11 @@ impl Env for StdEnv {
     fn new_random_access_file<P: AsRef<Path>>(
         &self,
         filename: P,
-    ) -> Result<Arc<dyn RandomAccessFile>, Status> {
+    ) -> Result<Arc<Mutex<dyn RandomAccessFile>>, Status> {
         if !self.mmap_limiter_.acquire() {
             let res = StdRandomAccessFile::new(filename.as_ref(), self.fd_limiter_.clone());
             if let Ok(random_access_file) = res {
-                Ok(Arc::new(random_access_file))
+                Ok(Arc::new(Mutex::new(random_access_file)))
             } else {
                 Err(Status::io_error(
                     "new StdRandomAccessFile random access file error",
@@ -244,7 +244,7 @@ impl Env for StdEnv {
         } else {
             let res = PosixMmapReadableFile::new(filename.as_ref(), self.mmap_limiter_.clone());
             if let Ok(random_access_file) = res {
-                Ok(Arc::new(random_access_file))
+                Ok(Arc::new(Mutex::new(random_access_file)))
             } else {
                 Err(Status::io_error(
                     "new PosixMmapReadableFile random access file error",
