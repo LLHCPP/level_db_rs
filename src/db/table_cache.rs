@@ -8,7 +8,6 @@ use crate::util::coding::encode_fixed64;
 use crate::util::env::Env;
 use crate::util::random_access_file::RandomAccessFile;
 use std::any::Any;
-use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
@@ -46,7 +45,7 @@ impl<'a, E> TableCache<E>
 where
     E: Env + 'static,
 {
-    fn new(db_name: String, options: Arc<Options<E>>, entries: NonZeroUsize) -> Self {
+    pub(crate) fn new(db_name: String, options: Arc<Options<E>>, entries: NonZeroUsize) -> Self {
         TableCache {
             env_: options.env.clone(),
             db_name,

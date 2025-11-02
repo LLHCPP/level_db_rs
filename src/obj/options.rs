@@ -30,7 +30,7 @@ where
     pub(crate) block_cache: Option<ShardedLRUCache<Slice, Block>>,
     block_size: usize,
     pub(crate) block_restart_interval: u32,
-    max_file_size: usize,
+    pub(crate) max_file_size: usize,
     compression: CompressionType,
     zstd_compression_level: u32,
     reuse_logs: bool,

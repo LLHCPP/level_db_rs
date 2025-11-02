@@ -4,7 +4,7 @@ use bytes::BytesMut;
 use std::sync::Arc;
 
 pub(crate) struct InternalFilterPolicy {
-    user_policy_: Arc<dyn FilterPolicy>,
+    pub(crate) user_policy_: Arc<dyn FilterPolicy>,
 }
 
 fn extract_user_key(internal_key: &Slice) -> Slice {

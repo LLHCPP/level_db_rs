@@ -13,7 +13,6 @@ use crate::util::env::Env;
 use crate::util::filter_policy::FilterPolicy;
 use crate::util::random_access_file::RandomAccessFile;
 use std::any::Any;
-use std::convert::identity;
 use std::sync::{Arc, Mutex};
 pub type HandleResult = Box<dyn Fn(Box<dyn Any>, &Slice, &Slice)>;
 struct Rep<E>
@@ -60,7 +59,7 @@ where
     fn new(rep: Arc<Mutex<Rep<E>>>) -> Table<E> {
         Table { rep }
     }
-   pub  fn open(
+    pub fn open(
         options: Arc<Options<E>>,
         file: Arc<Mutex<dyn RandomAccessFile>>,
         size: u64,
@@ -231,7 +230,7 @@ where
         res
     }
 
-   pub  fn internal_get(
+    pub fn internal_get(
         &self,
         options: &ReadOptions,
         key: &Slice,
