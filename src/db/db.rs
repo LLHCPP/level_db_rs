@@ -12,6 +12,8 @@ use crate::util::writable_file::WritableFile;
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use ahash::HashSet;
+use crate::db::internal_key::InternalKey;
 
 struct Range {
     start: Slice,
@@ -28,7 +30,7 @@ trait DB<E>
 where
     E: Env,
 {
-    fn open(options: Arc<Options<E>>, name: &String) -> Result<Arc<Self>, Status>
+    fn open(options: Arc<Options<E>>, name: String) -> Result<Arc<Self>, Status>
     where
         Self: Sized;
 
@@ -38,7 +40,7 @@ where
     fn get(&self, options: &ReadOptions, key: &Slice) -> Result<Slice, Status>;
 
     fn new_iterator(&self, options: &ReadOptions) -> Arc<dyn Iter>;
-    
+
 
     fn get_property(&self, property: &Slice, value: &mut String) -> bool;
 
@@ -70,6 +72,18 @@ fn table_cache_size(max_open_files: usize) -> usize {
     max_open_files - K_NUM_NON_TABLE_CACHE_FILES
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 impl<E> DBImpl<E>
 where
     E: Env + 'static,
@@ -99,11 +113,19 @@ impl<E> DB<E> for DBImpl<E>
 where
     E: Env,
 {
-    fn open(options: Arc<Options<E>>, name: &String) -> Result<Arc<Self>, Status>
+    fn open(options: Arc<Options<E>>, name: String) -> Result<Arc<Self>, Status>
     where
         Self: Sized,
     {
-        todo!()
+        let db = Arc::new(DBImpl::new(options, name));
+        let save_manifest = false;
+
+
+
+
+
+
+
     }
 
     fn put(&self, options: &WriteOptions, key: &Slice, value: &Slice) -> Status {
@@ -121,8 +143,8 @@ where
     fn new_iterator(&self, options: &ReadOptions) -> Arc<dyn Iter> {
         todo!()
     }
-    
-    
+
+
 
     fn get_property(&self, property: &Slice, value: &mut String) -> bool {
         todo!()

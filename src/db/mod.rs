@@ -11,3 +11,4 @@ pub mod log_writer;
 pub mod mem_table;
 mod read_options;
 mod write_options;
+mod version_edit;
