@@ -1,7 +1,4 @@
-use crate::db::internal_filter_policy::InternalFilterPolicy;
-use crate::db::internal_key_comparator::InternalKeyComparator;
 use crate::db::mem_table::MemTable;
-use crate::db::snap_shot::Snapshot;
 use crate::db::table_cache::TableCache;
 use crate::db::write_options::WriteOptions;
 use crate::obj::options::{Options, ReadOptions};
@@ -41,9 +38,7 @@ where
     fn get(&self, options: &ReadOptions, key: &Slice) -> Result<Slice, Status>;
 
     fn new_iterator(&self, options: &ReadOptions) -> Arc<dyn Iter>;
-
-    fn get_snapshot(&self) -> Arc<dyn Snapshot>;
-    fn release_snapshot(&self, snapshot: Arc<dyn Snapshot>);
+    
 
     fn get_property(&self, property: &Slice, value: &mut String) -> bool;
 
@@ -126,14 +121,8 @@ where
     fn new_iterator(&self, options: &ReadOptions) -> Arc<dyn Iter> {
         todo!()
     }
-
-    fn get_snapshot(&self) -> Arc<dyn Snapshot> {
-        todo!()
-    }
-
-    fn release_snapshot(&self, snapshot: Arc<dyn Snapshot>) {
-        todo!()
-    }
+    
+    
 
     fn get_property(&self, property: &Slice, value: &mut String) -> bool {
         todo!()

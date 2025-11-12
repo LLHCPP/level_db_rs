@@ -1,4 +1,3 @@
-use crate::db::snap_shot::Snapshot;
 use crate::obj::slice::Slice;
 use crate::table::block::Block;
 use crate::util::cache::ShardedLRUCache;
@@ -41,14 +40,12 @@ where
 pub struct ReadOptions {
     pub(crate) verify_checksums: bool,
     pub(crate) fill_cache: bool,
-    snapshot: Option<Arc<dyn Snapshot>>,
 }
 impl ReadOptions {
     pub fn new() -> ReadOptions {
         ReadOptions {
             verify_checksums: false,
             fill_cache: true,
-            snapshot: None,
         }
     }
 }

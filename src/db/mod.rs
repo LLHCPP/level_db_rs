@@ -10,5 +10,4 @@ pub mod log_reader;
 pub mod log_writer;
 pub mod mem_table;
 mod read_options;
-pub mod snap_shot;
 mod write_options;
